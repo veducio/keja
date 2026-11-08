@@ -1,4 +1,8 @@
-# Owned object
+---
+
+title: Owned object
+description: The Postgres row shape for a Veducio object.
+---
 
 An owned object is the row shape Veducio stores in Postgres. Every application table is one owned object. `_id`, `_object`, `_tenant`, and `_archived` are reserved. Every other column is domain data.
 

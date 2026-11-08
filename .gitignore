@@ -1,4 +1,5 @@
 node_modules/
+.mintlify/
 .env
 .env.*
 !.env.example

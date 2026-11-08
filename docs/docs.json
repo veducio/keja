@@ -1,0 +1,21 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Keja",
+  "description": "Versioned public and service HTTP APIs for Veducio.",
+  "colors": {
+    "primary": "#0F766E"
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Overview",
+        "pages": ["index"]
+      },
+      {
+        "group": "Data",
+        "pages": ["owned-object"]
+      }
+    ]
+  }
+}
