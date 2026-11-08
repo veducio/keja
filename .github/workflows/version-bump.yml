@@ -1,0 +1,71 @@
+name: Version bump
+
+on:
+  push:
+    branches:
+      - production
+      - main
+  pull_request:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run check
+      - run: bash .github/scripts/version-bump-check.sh
+      - run: bun src/self-test/run.ts
+        env:
+          HOST: 127.0.0.1
+          HTTP_PORT: "3000"
+          HTTP_SERVICE_PORT: "3001"
+
+  bump:
+    needs: test
+    if: "github.event_name == 'push' && (github.ref == 'refs/heads/production' || github.ref == 'refs/heads/main') && !startsWith(github.event.head_commit.message, 'chore: release')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Bump version from commit messages
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          HUSKY: 0
+        run: |
+          git checkout -B "${GITHUB_REF_NAME}"
+          if [[ "${BEFORE}" =~ ^0+$ ]]; then
+            log="$(git log -1 --format=%B%x1e "${AFTER}")"
+          else
+            log="$(git log --format=%B%x1e "${BEFORE}..${AFTER}")"
+          fi
+          bump="$(printf '%s' "${log}" | bash .github/scripts/version-bump.sh)"
+          if [[ -z "${bump}" ]]; then
+            echo "Commit messages do not request a version bump."
+            exit 0
+          fi
+          npm version "${bump}" -m "chore: release %s"
+          git push --follow-tags origin "${GITHUB_REF_NAME}"

@@ -1,0 +1,141 @@
+export class VaultError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "VaultError";
+  }
+}
+
+export type VaultClientOptions = {
+  address?: string;
+  token?: string;
+  namespace?: string;
+  mount?: string;
+  fetch?: (url: string, init?: RequestInit) => Promise<Response>;
+};
+
+export function createVault(options: VaultClientOptions = {}) {
+  const address = vaultAddress(options.address ?? envValue("VAULT_ADDR"));
+  const token = required(
+    options.token ?? envValue("VAULT_TOKEN"),
+    "VAULT_TOKEN",
+  );
+  const namespace = options.namespace ?? envValue("VAULT_NAMESPACE");
+  const mount = secretMount(
+    options.mount ?? envValue("VAULT_KV_MOUNT") ?? "secret",
+  );
+  const fetchImpl = options.fetch ?? fetch;
+  return {
+    async secret<
+      Data extends Record<string, unknown> = Record<string, unknown>,
+    >(path: string) {
+      const secretPath = normalizePath(path);
+      const response = await fetchImpl(
+        `${address}/v1/${mount}/data/${secretPath}`,
+        {
+          headers: vaultHeaders(token, namespace),
+        },
+      );
+      if (!response.ok) {
+        throw await vaultFailure(response, `${mount}/${secretPath}`);
+      }
+      const body = (await response.json()) as {
+        data?: { data?: Data };
+      };
+      if (!body.data?.data || typeof body.data.data !== "object") {
+        throw new VaultError(`Vault secret ${mount}/${secretPath} has no data`);
+      }
+      return body.data.data;
+    },
+  };
+}
+
+export function vaultSecret<
+  Data extends Record<string, unknown> = Record<string, unknown>,
+>(path: string, options?: VaultClientOptions) {
+  return createVault(options).secret<Data>(path);
+}
+
+function vaultAddress(value: string | null) {
+  if (!value) {
+    throw new VaultError("VAULT_ADDR is required");
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new VaultError("VAULT_ADDR must be an absolute http or https URL");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new VaultError("VAULT_ADDR must be an absolute http or https URL");
+  }
+  return url.href.replace(/\/$/, "");
+}
+
+function secretMount(value: string) {
+  const mount = value.trim().replace(/^\/+|\/+$/g, "");
+  if (!/^[A-Za-z0-9_-]+$/.test(mount)) {
+    throw new VaultError(`invalid Vault mount: ${value}`);
+  }
+  return mount;
+}
+
+function normalizePath(path: string) {
+  const cleaned = path.trim().replace(/^\/+|\/+$/g, "");
+  const parts = cleaned.split("/");
+  if (
+    !cleaned ||
+    parts.some((part) => part.length === 0 || part === "." || part === "..")
+  ) {
+    throw new VaultError(`invalid Vault secret path: ${path}`);
+  }
+  return parts.map((part) => encodeURIComponent(part)).join("/");
+}
+
+function vaultHeaders(token: string, namespace: string | null) {
+  const headers = new Headers({ "X-Vault-Token": token });
+  if (namespace) {
+    headers.set("X-Vault-Namespace", namespace);
+  }
+  return headers;
+}
+
+async function vaultFailure(response: Response, path: string) {
+  const errors = await vaultErrors(response);
+  if (response.status === 404) {
+    return new VaultError(`Vault secret ${path} was not found`);
+  }
+  const detail = errors.length > 0 ? `: ${errors.join(", ")}` : "";
+  return new VaultError(
+    `Vault rejected ${path} with status ${response.status}${detail}`,
+  );
+}
+
+async function vaultErrors(response: Response) {
+  try {
+    const body = (await response.json()) as { errors?: unknown };
+    if (!Array.isArray(body.errors)) {
+      return [];
+    }
+    return body.errors.filter(
+      (item): item is string => typeof item === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function required(value: string | null, name: string) {
+  if (!value) {
+    throw new VaultError(`${name} is required`);
+  }
+  return value;
+}
+
+function envValue(name: string) {
+  const runtime = globalThis as {
+    Bun?: { env?: Record<string, string | undefined> };
+  };
+  const value = runtime.Bun?.env?.[name] ?? process.env[name];
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}

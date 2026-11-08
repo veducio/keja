@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@veducio/keja": ["../../src/server/index.ts"]
+    }
+  },
+  "include": ["**/*.ts"]
+}

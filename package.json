@@ -1,0 +1,60 @@
+{
+  "name": "@veducio/keja",
+  "version": "0.1.0",
+  "description": "Veducio Keja - RESTFUL Web Server, Based on Lightweight Hono Framework, Written in TypeScript, Powered by Bun",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/veducio/keja.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "files": [
+    "src",
+    "examples/starter",
+    "README.md"
+  ],
+  "type": "module",
+  "bin": {
+    "keja": "./src/cli/index.ts"
+  },
+  "main": "src/server/index.ts",
+  "exports": {
+    ".": "./src/server/index.ts",
+    "./cli": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/cli/index.ts dev",
+    "start": "bun src/cli/index.ts start",
+    "self-test": "bun src/self-test/run.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p examples/example-app && tsc --noEmit -p examples/starter",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome lint .",
+    "format": "biome format --write .",
+    "check": "biome check .",
+    "prepare": "husky"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@types/bun": "^1.4.4",
+    "husky": "^9.1.7",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^1.6.3",
+    "@scalar/hono-api-reference": "^0.12.18",
+    "chalk": "^6.0.1",
+    "citty": "^0.2.2",
+    "hono": "^4.13.17",
+    "jose": "^6.2.16",
+    "nanoid": "^6.0.2",
+    "zod": "^4.6.7"
+  }
+}

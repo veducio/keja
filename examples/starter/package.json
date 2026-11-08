@@ -1,0 +1,14 @@
+{
+  "name": "my-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch --env-file=.env ./node_modules/@veducio/keja/src/cli/index.ts dev",
+    "start": "bun --env-file=.env ./node_modules/@veducio/keja/src/cli/index.ts start"
+  },
+  "dependencies": {
+    "@veducio/keja": "^0.1.0",
+    "zod": "^4.6.7"
+  }
+}
