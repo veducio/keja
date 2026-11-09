@@ -127,6 +127,7 @@ export async function createProject(options: {
   packageRoot: string;
   run: Run;
 }) {
+  await requireBun(options.run, options.cwd);
   await requireGit(options.run, options.cwd);
   const destination = path.resolve(options.cwd, options.answers.directory);
   if (existsSync(destination)) {
@@ -217,6 +218,10 @@ export async function createProject(options: {
     "ping.ts",
     servicePing,
   );
+  const installCode = await options.run("bun", ["install"], destination);
+  if (installCode !== 0) {
+    throw new Error(`bun install failed in ${destination}`);
+  }
   const initCode = await options.run("git", ["init"], destination);
   if (initCode !== 0) {
     throw new Error(`git init failed in ${destination}`);
@@ -269,15 +274,33 @@ export async function askOnTerminal(label: string, fallback: string) {
 }
 
 export function runCommand(command: string, args: string[], cwd: string) {
+  const visible = command === "bun" && args[0] === "install";
   return new Promise<number>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
-      stdio: "ignore",
+      stdio: visible ? "inherit" : "ignore",
       windowsHide: true,
     });
     child.on("error", reject);
     child.on("close", (code) => resolve(code ?? 1));
   });
+}
+
+async function requireBun(run: Run, cwd: string) {
+  try {
+    const code = await run("bun", ["--version"], cwd);
+    if (code !== 0) {
+      throw new Error("Bun is required to create a project.");
+    }
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "Bun is required to create a project."
+    ) {
+      throw error;
+    }
+    throw new Error("Bun is required to create a project.");
+  }
 }
 
 async function requireGit(run: Run, cwd: string) {

@@ -8,7 +8,7 @@ This page builds the smallest Keja service. Each step does one thing and links t
 
 ## Create the project
 
-`keja init` copies the starter into an empty directory, writes `.env` from `.env.example`, and adds `src/public/hello.ts` plus `src/service/ping.ts`.
+`keja init` copies the starter into an empty directory, writes `.env` from `.env.example`, runs `bun install`, runs `git init`, and adds `src/public/hello.ts` plus `src/service/ping.ts`.
 
 ```shell
 keja init --name my-app --dir ./my-app

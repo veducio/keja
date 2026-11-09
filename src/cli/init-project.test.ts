@@ -66,6 +66,32 @@ describe("resolveInitAnswers", () => {
 });
 
 describe("createProject", () => {
+  it("requires bun before it writes a project", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "keja-init-"));
+    const calls: string[] = [];
+    await expect(
+      createProject({
+        answers: {
+          name: "my-app",
+          directory: "./my-app",
+          publicDir: "src/public",
+          serviceDir: "src/service",
+        },
+        cwd: root,
+        templateDir: path.join(root, "template"),
+        packageRoot: path.join(root, "keja"),
+        run: async (command, args) => {
+          calls.push(`${command} ${args.join(" ")}`);
+          return command === "bun" ? 1 : 0;
+        },
+      }),
+    ).rejects.toThrow("Bun is required to create a project.");
+    expect(calls).toEqual(["bun --version"]);
+    expect(() =>
+      readFileSync(path.join(root, "my-app", "package.json")),
+    ).toThrow();
+  });
+
   it("requires git before it writes a project", async () => {
     const root = mkdtempSync(path.join(tmpdir(), "keja-init-"));
     const calls: string[] = [];
@@ -82,11 +108,11 @@ describe("createProject", () => {
         packageRoot: path.join(root, "keja"),
         run: async (command, args) => {
           calls.push(`${command} ${args.join(" ")}`);
-          return 1;
+          return command === "git" ? 1 : 0;
         },
       }),
     ).rejects.toThrow("Git is required to create a project.");
-    expect(calls).toEqual(["git --version"]);
+    expect(calls).toEqual(["bun --version", "git --version"]);
   });
 
   it("copies the starter, rewrites the project files, and initializes git", async () => {
@@ -131,9 +157,13 @@ describe("createProject", () => {
 
     expect(directory).toBe(path.resolve(root, "notes"));
     expect(calls.map((call) => call.slice(0, call.lastIndexOf(" ")))).toEqual([
+      "bun --version",
       "git --version",
+      "bun install",
       "git init",
     ]);
+    expect(calls[2]).toBe(`bun install ${directory}`);
+    expect(calls[3]).toBe(`git init ${directory}`);
     expect(
       readFileSync(path.join(directory, "keja.versioning.ts"), "utf8"),
     ).toBe("export default 1;\n");

@@ -18,7 +18,7 @@ Add this `.npmrc` before installing:
 bun add @veducio/keja zod
 ```
 
-`keja init` creates a project from the starter that ships inside the package. Git must be installed. The destination must be empty. Init copies the starter, writes `package.json`, `keja.config.ts`, `tsconfig.json`, and `.npmrc`, adds a public `GET /hello` and a service `POST /ping`, then runs `git init`.
+`keja init` creates a project from the starter that ships inside the package. Bun and Git must be installed. The destination must be empty. Init copies the starter, writes `package.json`, `keja.config.ts`, `tsconfig.json`, and `.npmrc`, adds a public `GET /hello` and a service `POST /ping`, runs `bun install`, then runs `git init`.
 
 ```shell
 keja init --name my-app --dir ./my-app --public ./src/public --service ./src/service
