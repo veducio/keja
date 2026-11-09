@@ -157,9 +157,8 @@ export async function createProject(options: {
         private: true,
         type: "module",
         scripts: {
-          dev: "bun --watch --env-file=.env ./node_modules/@veducio/keja/src/cli/index.ts dev",
-          start:
-            "bun --env-file=.env ./node_modules/@veducio/keja/src/cli/index.ts start",
+          dev: "keja dev",
+          start: "keja start",
         },
         dependencies: {
           "@veducio/keja": `^${kejaVersion}`,
@@ -343,9 +342,9 @@ function configSource(publicDir: string, serviceDir: string) {
   return `import { defineConfig } from "@veducio/keja";
 
 export default defineConfig({
-  public: ${JSON.stringify(publicDir)},
-  service: ${JSON.stringify(serviceDir)},
-  db: true,
+  public_path: ${JSON.stringify(publicDir)},
+  service_path: ${JSON.stringify(serviceDir)},
+  db: { enabled: true },
 });
 `;
 }

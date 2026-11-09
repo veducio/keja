@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { Chalk } from "chalk";
 import { describe, expect, it } from "vitest";
 import {
   formatAddresses,
@@ -8,6 +9,8 @@ import {
   formatDatabase,
   formatIdentity,
   formatProjectPaths,
+  formatProjectReady,
+  formatReloading,
   projectLabel,
   readProjectLabel,
   veducioAnnotation,
@@ -81,5 +84,15 @@ describe("projectLabel", () => {
         service: "C:/app/src/service",
       }),
     ).toContain("- Config     defaults");
+  });
+
+  it("prints reloading and a clean project", () => {
+    const style = new Chalk({ level: 1 });
+    expect(formatReloading()).toBe("\n  reloading...\n");
+    expect(formatProjectReady()).toBe("\n  no issues found\n");
+    expect(formatReloading(true)).toBe(`\n  ${style.dim("reloading...")}\n`);
+    expect(formatProjectReady(true)).toBe(
+      `\n  ${style.green("no issues found")}\n`,
+    );
   });
 });

@@ -1,4 +1,4 @@
-import type { ArgusConfig } from "../project/config.ts";
+import type { ArgusSettings } from "../project/config.ts";
 import type { ServiceIdentity } from "../server/identity.ts";
 import {
   type ArgusFetch,
@@ -10,7 +10,8 @@ import {
 export const argusHeartbeatMs = 10_000;
 
 export function startArgusHeartbeat(options: {
-  argus: ArgusConfig;
+  argus: ArgusSettings;
+  lead?: boolean;
   identity: ServiceIdentity;
   version?: string;
   fetchImpl?: ArgusFetch;
@@ -36,7 +37,9 @@ export function startArgusHeartbeat(options: {
       log(`Argus register failed: ${error}`);
     }
   };
-  void beat();
+  if (options.lead !== false) {
+    void beat();
+  }
   const timer = setInterval(() => {
     void beat();
   }, options.intervalMs ?? argusHeartbeatMs);

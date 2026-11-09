@@ -33,7 +33,7 @@ describe("DBCall", () => {
     }) as never);
     try {
       expect(() => DBCall`insert into notes ${{ message: "hi" }}`).toThrow(
-        "owned object _id must be an object id",
+        "OwnedObjects _id must be a typeid",
       );
       expect(calls).toHaveLength(0);
       expect(await DBCall`select * from notes`).toEqual([]);
@@ -44,6 +44,6 @@ describe("DBCall", () => {
 
   it("fails when the database is disabled", () => {
     setDatabase(null);
-    expect(() => DBCall`select 1`).toThrow("Database is disabled");
+    expect(() => DBCall`select 1`).toThrow("DBCall requires db");
   });
 });

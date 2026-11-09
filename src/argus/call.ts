@@ -1,5 +1,11 @@
-import type { ArgusConfig } from "../project/config.ts";
+import { DependencyNotMet } from "../errors/framework-errors.ts";
+import { processValue } from "../process/slot.ts";
+import type { ArgusSettings } from "../project/config.ts";
 import { type ArgusFetch, argusHeaders, joinUrl } from "./register.ts";
+
+const state = processValue("argus", () => ({
+  active: null as ArgusSettings | null,
+}));
 
 export class ServiceCallError extends Error {
   constructor(message: string) {
@@ -8,10 +14,8 @@ export class ServiceCallError extends Error {
   }
 }
 
-let active: ArgusConfig | null = null;
-
-export function setArgus(config: ArgusConfig | null) {
-  active = config;
+export function setArgus(config: ArgusSettings | null) {
+  state.active = config;
 }
 
 export async function callService<Data = unknown>(
@@ -23,15 +27,15 @@ export async function callService<Data = unknown>(
     random?: () => number;
   } = {},
 ): Promise<Data> {
-  if (!active) {
-    throw new ServiceCallError("Argus is disabled");
+  if (!state.active) {
+    throw new DependencyNotMet("service call", "argus");
   }
   const serviceName = serviceNameOf(service);
   const requestPath = servicePath(path);
   const fetchImpl = options.fetchImpl ?? fetch;
   const discovery = await fetchImpl(
-    `${joinUrl(active.url, `/v1/services/${encodeURIComponent(serviceName)}`)}?env=${encodeURIComponent(active.env)}`,
-    { headers: argusHeaders(active.username, active.password) },
+    `${joinUrl(state.active.url, `/v1/services/${encodeURIComponent(serviceName)}`)}?env=${encodeURIComponent(state.active.env)}`,
+    { headers: argusHeaders(state.active.username, state.active.password) },
   );
   if (!discovery.ok) {
     throw await discoveryFailure(discovery, serviceName);

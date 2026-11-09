@@ -1,5 +1,5 @@
 import type { SQL } from "bun";
-import { projectError } from "../errors/framework-errors.ts";
+import { ProjectError, projectError } from "../errors/framework-errors.ts";
 import { setDatabase } from "./client.ts";
 import {
   type AppliedMigration,
@@ -30,20 +30,49 @@ export function readDatabaseUrl(value: string | undefined) {
   );
 }
 
+export async function connectDatabase(databaseUrl: string) {
+  const sql = await openClient(databaseUrl);
+  try {
+    await sql`select 1`;
+  } catch (error) {
+    await sql.close();
+    throw asDatabaseError(error);
+  }
+  setDatabase(sql);
+  return sql;
+}
+
 export async function migrateDatabase(directory: string, databaseUrl: string) {
-  const { SQL } = await import("bun");
-  const sql = new SQL(readDatabaseUrl(databaseUrl));
+  const sql = await openClient(databaseUrl);
   try {
     const applied = await applyMigrations(
       await loadMigrations(directory),
       adapter(sql),
     );
-    setDatabase(sql);
     return { migrations: directory, applied };
   } catch (error) {
+    throw asDatabaseError(error);
+  } finally {
     await sql.close();
+  }
+}
+
+async function openClient(databaseUrl: string) {
+  const { SQL } = await import("bun");
+  try {
+    return new SQL(readDatabaseUrl(databaseUrl));
+  } catch (error) {
+    throw asDatabaseError(error);
+  }
+}
+
+function asDatabaseError(error: unknown): never {
+  if (error instanceof ProjectError) {
     throw error;
   }
+  const detail =
+    error instanceof Error ? error.message : "Database connection failed";
+  throw projectError("databaseInit", detail);
 }
 
 function adapter(sql: SQL): MigrationClient {

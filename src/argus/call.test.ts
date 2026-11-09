@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import type { ArgusConfig } from "../project/config.ts";
+import type { ArgusSettings } from "../project/config.ts";
 import { callService, ServiceCallError, setArgus } from "./call.ts";
 
-const argus: ArgusConfig = {
+const argus: ArgusSettings = {
   url: "https://argus.example",
   env: "staging",
   username: "argus",
@@ -81,7 +81,7 @@ describe("callService", () => {
 
   it("requires an active Argus config and a registered instance", async () => {
     await expect(callService("billing", "/v1/invoices", {})).rejects.toThrow(
-      "Argus is disabled",
+      "service call requires argus",
     );
     setArgus(argus);
     await expect(

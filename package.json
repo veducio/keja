@@ -1,6 +1,7 @@
 {
   "name": "@veducio/keja",
   "version": "0.1.0",
+  "packageManager": "bun@1.4.4",
   "description": "Veducio Keja - RESTFUL Web Server, Based on Lightweight Hono Framework, Written in TypeScript, Powered by Bun",
   "license": "UNLICENSED",
   "repository": {
@@ -26,7 +27,7 @@
     "./cli": "./src/cli/index.ts"
   },
   "scripts": {
-    "dev": "bun --watch src/cli/index.ts dev",
+    "dev": "bun src/cli/index.ts dev",
     "start": "bun src/cli/index.ts start",
     "self-test": "bun src/self-test/run.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p examples/example-app && tsc --noEmit -p examples/starter",
@@ -56,7 +57,7 @@
     "citty": "^0.2.2",
     "hono": "^4.13.17",
     "jose": "^6.2.16",
-    "nanoid": "^6.0.2",
+    "typeid-js": "^1.2.0",
     "zod": "^4.6.7"
   }
 }

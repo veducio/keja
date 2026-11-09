@@ -1,50 +1,61 @@
 import { networkInterfaces } from "node:os";
 import { setArgus } from "../argus/call.ts";
 import { startArgusHeartbeat } from "../argus/heartbeat.ts";
-import { migrateDatabase } from "../db/postgres.ts";
+import { argusRegistrations, publishArgus } from "../argus/register.ts";
+import { connectDatabase } from "../db/postgres.ts";
 import { readOpenApiServers, readRequiredEnv } from "../env/required-env.ts";
+import { projectError } from "../errors/framework-errors.ts";
 import { createHttpApp } from "../http/create-app.ts";
-import { loadProject } from "../project/load.ts";
+import { type LoadedProject, loadProject } from "../project/load.ts";
 import { formatSelfTest, runSelfTest } from "../self-test/run.ts";
+import { connectVault, setVault } from "../vault/client.ts";
 import {
   buildIdentity,
   readPackageVersion,
   readServiceName,
 } from "./identity.ts";
+import { swapProjectHandlers } from "./swap.ts";
 
 export type { AccessIdentity } from "../access/cloudflare.ts";
 export { cloudflareAccess, verifyAccessJwt } from "../access/cloudflare.ts";
 export { callService, ServiceCallError } from "../argus/call.ts";
 export { DBCall } from "../db/client.ts";
-export { frameworkErrors } from "../errors/framework-errors.ts";
+export {
+  DependencyNotMet,
+  frameworkErrors,
+} from "../errors/framework-errors.ts";
+export { defineConfig } from "../project/config.ts";
+export { defineRepositories } from "../repository/define.ts";
+export { repository } from "../repository/runtime.ts";
+export { defineRoute, response } from "../route/define.ts";
+export { defineMiddleware } from "../route/middleware.ts";
+export { defineSeeder } from "../seed/define.ts";
 export type {
   CreateObjectRowOptions,
   ObjectRowMeta,
-  ParsedObjectId,
-} from "../object-id/id.ts";
+  ParsedTypeId,
+} from "../typeid/id.ts";
 export {
   assertObjectType,
-  createId,
   createObjectRow,
+  createTypeId,
   idPrefixFromObjectType,
-  isObjectId,
   isObjectType,
-  OBJECT_ID_BODY_LENGTH,
-  ObjectIdError,
-  objectIdPattern,
+  isTypeId,
   objectTypeFromRoute,
-  parseObjectId,
-} from "../object-id/id.ts";
-export type { OwnedObject } from "../object-id/owned.ts";
-export { assertOwnedObject } from "../object-id/owned.ts";
-export { defineConfig } from "../project/config.ts";
-export { defineRoute, response } from "../route/define.ts";
-export { defineMiddleware } from "../route/middleware.ts";
+  parseTypeId,
+  TypeIdError,
+} from "../typeid/id.ts";
+export type { OwnedObject } from "../typeid/owned.ts";
+export { assertOwnedObject } from "../typeid/owned.ts";
 export { createVault, VaultError, vaultSecret } from "../vault/client.ts";
 export { defineVersions } from "../versioning/define.ts";
 
-export async function listen(root = process.cwd()) {
-  const project = await loadProject(root);
+export async function listen(
+  root = process.cwd(),
+  options?: { generation?: string },
+) {
+  const project = await loadProject(root, options);
   const result = runSelfTest();
   if (!result.ok) {
     console.error(formatSelfTest(result, process.stderr.isTTY === true));
@@ -54,56 +65,52 @@ export async function listen(root = process.cwd()) {
 
   const env = readRequiredEnv(Bun.env);
   const openApiServers = readOpenApiServers(Bun.env);
-  const migrated = project.database.enabled
-    ? await migrateDatabase(
-        project.database.migrations,
-        Bun.env.DATABASE_URL ?? "",
-      )
-    : null;
-  const identity = buildIdentity({
-    name: readServiceName(root, project.name),
-    bindHost: env.host,
-    publicPort: env.httpPort,
-    servicePort: env.httpServicePort,
-    interfaces: networkInterfaces(),
-  });
-  const publicApp = createHttpApp({
-    title: "Public",
-    versions: project.versions,
-    routes: project.publicRoutes,
-    middleware: project.publicMiddleware,
-    server: openApiServers.openapiServer,
-    identity,
-  });
-  const serviceApp = createHttpApp({
-    title: "Service",
-    versions: project.versions,
-    routes: project.serviceRoutes,
-    middleware: project.serviceMiddleware,
-    server: openApiServers.openapiServiceServer,
-    identity,
-    postOnly: true,
-  });
+  if (project.database.enabled) {
+    await connectDatabase(Bun.env.DATABASE_URL ?? "");
+  }
+  if (project.vault.enabled) {
+    await connectVault(project.vault);
+  } else {
+    setVault(null);
+  }
+  const mounted = mountProject(root, project, env, openApiServers);
+  const identity = mounted.identity;
+  if (project.argus.enabled) {
+    const errors = await publishArgus({
+      url: project.argus.url,
+      username: project.argus.username,
+      password: project.argus.password,
+      registrations: argusRegistrations({
+        identity,
+        argus: project.argus,
+        version: readPackageVersion(root),
+      }),
+    });
+    if (errors.length > 0) {
+      throw projectError("argusInit", errors.join("; "));
+    }
+  }
   const publicServer = Bun.serve({
     hostname: env.host,
     port: env.httpPort,
     fetch(request) {
-      return publicApp.fetch(request);
+      return mounted.publicApp.fetch(request);
     },
   });
   const serviceServer = Bun.serve({
     hostname: env.host,
     port: env.httpServicePort,
     fetch(request) {
-      return serviceApp.fetch(request);
+      return mounted.serviceApp.fetch(request);
     },
   });
-  setArgus(project.argus);
-  if (project.argus) {
+  setArgus(project.argus.enabled ? project.argus : null);
+  if (project.argus.enabled) {
     startArgusHeartbeat({
       argus: project.argus,
       identity,
       version: readPackageVersion(root),
+      lead: false,
     });
   }
   return {
@@ -112,6 +119,51 @@ export async function listen(root = process.cwd()) {
     paths: project.paths,
     identity,
     argus: project.argus,
-    database: migrated,
+    vault: project.vault,
+    database: project.database.enabled ? { connected: true as const } : null,
+    reload(next: LoadedProject) {
+      swapProjectHandlers(
+        { publicServer, serviceServer },
+        mountProject(root, next, env, openApiServers),
+      );
+    },
+  };
+}
+
+function mountProject(
+  root: string,
+  project: LoadedProject,
+  env: { host: string; httpPort: number; httpServicePort: number },
+  openApiServers: {
+    openapiServer: string | null;
+    openapiServiceServer: string | null;
+  },
+) {
+  const identity = buildIdentity({
+    name: readServiceName(root, project.name),
+    bindHost: env.host,
+    publicPort: env.httpPort,
+    servicePort: env.httpServicePort,
+    interfaces: networkInterfaces(),
+  });
+  return {
+    identity,
+    publicApp: createHttpApp({
+      title: "Public",
+      versions: project.versions,
+      routes: project.publicRoutes,
+      middleware: project.publicMiddleware,
+      server: openApiServers.openapiServer,
+      identity,
+    }),
+    serviceApp: createHttpApp({
+      title: "Service",
+      versions: project.versions,
+      routes: project.serviceRoutes,
+      middleware: project.serviceMiddleware,
+      server: openApiServers.openapiServiceServer,
+      identity,
+      postOnly: true,
+    }),
   };
 }

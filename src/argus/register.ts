@@ -1,4 +1,4 @@
-import type { ArgusConfig } from "../project/config.ts";
+import type { ArgusSettings } from "../project/config.ts";
 import type { ServiceIdentity } from "../server/identity.ts";
 
 export const argusTtlSeconds = 30;
@@ -21,7 +21,7 @@ export type ArgusRegistration = {
 
 export function argusRegistrations(input: {
   identity: ServiceIdentity;
-  argus: ArgusConfig;
+  argus: ArgusSettings;
   version?: string;
 }) {
   const publicService = input.argus.public ?? input.identity.name;
@@ -68,7 +68,7 @@ function registrations(
   urls: readonly string[],
   input: {
     identity: ServiceIdentity;
-    argus: ArgusConfig;
+    argus: ArgusSettings;
     version?: string;
   },
 ): ArgusRegistration[] {

@@ -1,6 +1,7 @@
 import { defineMiddleware, defineRoute, response } from "@veducio/keja";
 import { z } from "zod";
-import { users } from "../data.ts";
+import { users } from "../db/repositories.ts";
+import { exampleTenant } from "../tenant.ts";
 
 const withPlan = defineMiddleware(async ({ next }) => {
   const response = await next({ plan: "public" });
@@ -18,7 +19,8 @@ export default defineRoute({
   path: "/users/:id",
   version: "v1",
   request: {
-    params: z.object({ id: z.string().min(1) }),
+    params: users.get.params,
+    query: users.get.query,
   },
   middleware: [withPlan],
   responses: {
@@ -32,12 +34,12 @@ export default defineRoute({
       const: { error: "ID_DOES_NOT_EXIST" },
     }),
   },
-  handler: ({ params, plan, respond }) => {
-    const found = users.find((item) => item.id === params.id);
+  handler: async ({ params, query, plan, respond }) => {
+    const found = await users.get(params, query, { tenant: exampleTenant });
     if (!found) {
       return respond.IdDoesNotExist(params);
     }
-    const result = respond.User({ id: found.id, name: found.name });
+    const result = respond.User({ id: found._id, name: found.name });
     result.headers.set("x-plan", plan);
     return result;
   },

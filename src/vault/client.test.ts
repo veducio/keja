@@ -1,7 +1,16 @@
-import { describe, expect, it } from "vitest";
-import { createVault, VaultError } from "./client.ts";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  connectVault,
+  createVault,
+  setVault,
+  VaultError,
+  vaultSecret,
+} from "./client.ts";
 
 describe("createVault", () => {
+  afterEach(() => {
+    setVault(null);
+  });
   it("reads a KV v2 secret and returns its data", async () => {
     const calls: {
       url: string;
@@ -65,6 +74,49 @@ describe("createVault", () => {
     );
     expect(() => createVault({ address: "https://vault.example" })).toThrow(
       "VAULT_TOKEN is required",
+    );
+  });
+
+  it("looks up the token before vaultSecret uses the config client", async () => {
+    const urls: string[] = [];
+    await connectVault(
+      {
+        address: "https://vault.example",
+        token: "s.token",
+        namespace: null,
+        mount: "secret",
+      },
+      async (url) => {
+        urls.push(url);
+        if (url.endsWith("/v1/auth/token/lookup-self")) {
+          return Response.json({ data: { id: "s.token" } });
+        }
+        return Response.json({ data: { data: { password: "secret" } } });
+      },
+    );
+    await expect(vaultSecret("apps/keja")).resolves.toEqual({
+      password: "secret",
+    });
+    expect(urls[0]).toBe("https://vault.example/v1/auth/token/lookup-self");
+  });
+
+  it("turns a rejected token lookup into a project error", async () => {
+    await expect(
+      connectVault(
+        {
+          address: "https://vault.example",
+          token: "s.token",
+          namespace: null,
+          mount: "secret",
+        },
+        async () =>
+          Response.json({ errors: ["permission denied"] }, { status: 403 }),
+      ),
+    ).rejects.toThrow(
+      "Vault rejected auth/token/lookup-self with status 403: permission denied",
+    );
+    expect(() => vaultSecret("apps/keja")).toThrow(
+      "vaultSecret requires vault",
     );
   });
 });

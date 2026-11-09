@@ -90,6 +90,10 @@ export type RouteDefinition = {
 };
 
 const routeBrand = "keja.route";
+const httpMethods = ["get", "post", "put", "patch", "delete"] as const;
+
+const routePath =
+  /^\/(?:$|(?:[A-Za-z0-9._~-]+|:[A-Za-z_][A-Za-z0-9_]*)(?:\/(?:[A-Za-z0-9._~-]+|:[A-Za-z_][A-Za-z0-9_]*))*\/?)$/;
 
 export function response<
   const Code extends number,
@@ -131,6 +135,32 @@ export function defineRoute<
       MergedFields<MiddlewareList> & { respond: RespondFns<Responses> },
   ) => Response | Promise<Response>;
 }): RouteDefinition {
+  if (
+    typeof definition.method !== "string" ||
+    !httpMethods.includes(definition.method)
+  ) {
+    throw projectError(
+      "invalidRoute",
+      `Method ${String(definition.method)} must be get, post, put, patch, or delete`,
+    );
+  }
+  if (typeof definition.path !== "string" || !routePath.test(definition.path)) {
+    throw projectError(
+      "invalidRoute",
+      `Path ${String(definition.path)} must start with /`,
+    );
+  }
+  const request = definition.request as RequestSchemas | undefined;
+  if (request) {
+    for (const key of ["params", "query", "body"] as const) {
+      if (request[key] !== undefined) {
+        assertSchema(
+          request[key],
+          `${definition.method.toUpperCase()} ${definition.path} request.${key}`,
+        );
+      }
+    }
+  }
   if (readVersionNumber(definition.version) === null) {
     throw projectError(
       "invalidVersionId",
@@ -139,6 +169,16 @@ export function defineRoute<
   }
   const responses = Object.entries(definition.responses).map(
     ([name, defined]) => {
+      if (!defined || typeof defined !== "object" || !("json" in defined)) {
+        throw projectError(
+          "invalidRoute",
+          `${definition.method.toUpperCase()} ${definition.path} response ${name} must be created with response(...)`,
+        );
+      }
+      assertSchema(
+        defined.json,
+        `${definition.method.toUpperCase()} ${definition.path} response ${name}`,
+      );
       if (
         !Number.isInteger(defined.code) ||
         defined.code < 100 ||
@@ -203,6 +243,52 @@ export function defineRoute<
         MergedFields<MiddlewareList> & { respond: RespondFns<Responses> }),
   };
   return Object.assign(route, { [routeBrand]: true });
+}
+
+function assertSchema(value: unknown, label: string, seen = new Set<object>()) {
+  if (!isSchema(value)) {
+    throw projectError("invalidRoute", `${label} must be a Zod schema`);
+  }
+  if (seen.has(value)) {
+    return;
+  }
+  seen.add(value);
+  const def = value._zod.def;
+  if (!def) {
+    return;
+  }
+  if ("element" in def) {
+    assertSchema(def.element, label, seen);
+  }
+  if ("innerType" in def) {
+    assertSchema(def.innerType, label, seen);
+  }
+  if (def.shape && typeof def.shape === "object") {
+    for (const nested of Object.values(def.shape)) {
+      assertSchema(nested, label, seen);
+    }
+  }
+  if (Array.isArray(def.options)) {
+    for (const option of def.options) {
+      assertSchema(option, label, seen);
+    }
+  }
+  if (Array.isArray(def.items)) {
+    for (const item of def.items) {
+      assertSchema(item, label, seen);
+    }
+  }
+}
+
+function isSchema(value: unknown): value is {
+  _zod: { def?: Record<string, unknown> };
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "_zod" in value &&
+    typeof (value as { safeParse?: unknown }).safeParse === "function"
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

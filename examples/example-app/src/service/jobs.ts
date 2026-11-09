@@ -1,7 +1,7 @@
-import { defineRoute, response } from "@veducio/keja";
+import { createObjectRow, defineRoute, response } from "@veducio/keja";
 import { z } from "zod";
-
-const jobs: { id: string; name: string }[] = [];
+import { jobs } from "../db/repositories.ts";
+import { exampleTenant } from "../tenant.ts";
 
 export default defineRoute({
   method: "post",
@@ -19,9 +19,11 @@ export default defineRoute({
       }),
     }),
   },
-  handler: ({ body, respond }) => {
-    const job = { id: crypto.randomUUID(), name: body.name };
-    jobs.push(job);
-    return respond.Created(job);
+  handler: async ({ body, respond }) => {
+    const saved = await jobs.insert({
+      ...createObjectRow("v2.jobs", { tenant: exampleTenant }),
+      name: body.name,
+    });
+    return respond.Created({ id: saved._id, name: saved.name });
   },
 });

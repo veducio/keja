@@ -1,10 +1,10 @@
 export const ownedObjectSql = `
-create or replace function keja_is_object_id(value text)
+create or replace function keja_is_typeid(value text)
 returns boolean
 language sql
 immutable
 as $$
-  select value ~ '^[a-z][a-z0-9]*_[0-9A-Za-z]{21}$'
+  select value ~ '^[a-z]([a-z_]{0,61}[a-z])?_[0-9a-hjkmnp-tv-z]{26}$'
 $$;
 
 create or replace function keja_is_object_type(value text)
@@ -12,7 +12,7 @@ returns boolean
 language sql
 immutable
 as $$
-  select value ~ '^v[0-9]+(\\.[a-z][a-z0-9]*)+$'
+  select value ~ '^v[0-9]+(\\.[a-z]([a-z_]{0,61}[a-z])?)+$'
 $$;
 
 create or replace function keja_is_tenant(value text)
@@ -21,6 +21,14 @@ language sql
 immutable
 as $$
   select value is not null and length(btrim(value)) > 0
+$$;
+
+create or replace function keja_timestamps(created_at timestamptz, updated_at timestamptz)
+returns boolean
+language sql
+immutable
+as $$
+  select updated_at >= created_at
 $$;
 
 create or replace function keja_owned_object_violations()
@@ -34,10 +42,14 @@ declare
   object_type text;
   tenant_type text;
   archived_type text;
+  created_type text;
+  updated_type text;
   id_required boolean;
   object_required boolean;
   tenant_required boolean;
   archived_required boolean;
+  created_required boolean;
+  updated_required boolean;
   primary_key text;
   checks text;
 begin
@@ -85,6 +97,24 @@ begin
       and a.attnum > 0
       and not a.attisdropped;
 
+    select t.typname, a.attnotnull
+      into created_type, created_required
+    from pg_attribute a
+    join pg_type t on t.oid = a.atttypid
+    where a.attrelid = rel.oid
+      and a.attname = '_createdAt'
+      and a.attnum > 0
+      and not a.attisdropped;
+
+    select t.typname, a.attnotnull
+      into updated_type, updated_required
+    from pg_attribute a
+    join pg_type t on t.oid = a.atttypid
+    where a.attrelid = rel.oid
+      and a.attname = '_updatedAt'
+      and a.attnum > 0
+      and not a.attisdropped;
+
     select string_agg(a.attname, ',' order by array_position(i.indkey, a.attnum))
       into primary_key
     from pg_index i
@@ -107,8 +137,8 @@ begin
     elsif id_type <> 'text' or id_required is not true or primary_key is distinct from '_id' then
       detail := '_id must be a text primary key';
       return next;
-    elsif checks is null or checks !~* 'keja_is_object_id[[:space:]]*\\([[:space:]]*"?_id"?' then
-      detail := '_id must be checked with keja_is_object_id';
+    elsif checks is null or checks !~* 'keja_is_typeid[[:space:]]*\\([[:space:]]*"?_id"?' then
+      detail := '_id must be checked with keja_is_typeid';
       return next;
     elsif object_type is null then
       detail := 'missing _object';
@@ -133,6 +163,21 @@ begin
       return next;
     elsif archived_type <> 'bool' or archived_required is not true then
       detail := '_archived must be boolean not null';
+      return next;
+    elsif created_type is null then
+      detail := 'missing _createdAt';
+      return next;
+    elsif created_type <> 'timestamptz' or created_required is not true then
+      detail := '_createdAt must be timestamptz not null';
+      return next;
+    elsif updated_type is null then
+      detail := 'missing _updatedAt';
+      return next;
+    elsif updated_type <> 'timestamptz' or updated_required is not true then
+      detail := '_updatedAt must be timestamptz not null';
+      return next;
+    elsif checks !~* 'keja_timestamps[[:space:]]*\\([[:space:]]*"_createdAt"[[:space:]]*,[[:space:]]*"_updatedAt"' then
+      detail := '_createdAt and _updatedAt must be checked with keja_timestamps';
       return next;
     end if;
   end loop;

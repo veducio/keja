@@ -1,40 +1,38 @@
 import { describe, expect, it } from "vitest";
 import {
-  createId,
   createObjectRow,
+  createTypeId,
   idPrefixFromObjectType,
-  isObjectId,
   isObjectType,
-  OBJECT_ID_BODY_LENGTH,
+  isTypeId,
   objectTypeFromRoute,
-  parseObjectId,
+  parseTypeId,
 } from "./id.ts";
 
-describe("object ids", () => {
-  it("creates a prefixed id and reads it back", () => {
-    const id = createId("user");
-    expect(isObjectId(id, "user")).toBe(true);
-    expect(parseObjectId(id)).toEqual({
+describe("typeids", () => {
+  it("creates a prefixed typeid and reads it back", () => {
+    const id = createTypeId("user");
+    expect(isTypeId(id, "user")).toBe(true);
+    expect(parseTypeId(id)).toEqual({
       prefix: "user",
-      body: id.slice("user_".length),
+      suffix: id.slice("user_".length),
     });
-    expect(id.slice("user_".length)).toHaveLength(OBJECT_ID_BODY_LENGTH);
-    expect(parseObjectId("User_abc")).toBeNull();
-    expect(() => createId("User")).toThrow("invalid id prefix: User");
+    expect(id.slice("user_".length)).toHaveLength(26);
+    expect(parseTypeId("User_abc")).toBeNull();
+    expect(() => createTypeId("User")).toThrow("invalid type prefix: User");
   });
 
-  it("derives an object type from a route and builds a row", () => {
+  it("derives an object type from a route and builds an OwnedObjects row", () => {
     expect(objectTypeFromRoute(2, "/core/users")).toBe("v2.core.users");
     expect(idPrefixFromObjectType("v2.core.users")).toBe("users");
     expect(isObjectType("v2.core.users")).toBe(true);
     expect(isObjectType("users")).toBe(false);
     const row = createObjectRow("v2.core.users", { tenant: "acme" });
-    expect(row).toMatchObject({
-      _object: "v2.core.users",
-      _tenant: "acme",
-      _archived: false,
-    });
-    expect(isObjectId(row._id, "users")).toBe(true);
+    expect(row._object).toBe("v2.core.users");
+    expect(row._tenant).toBe("acme");
+    expect(row._archived).toBe(false);
+    expect(row._createdAt).toEqual(row._updatedAt);
+    expect(isTypeId(row._id, "users")).toBe(true);
   });
 
   it("rejects a route that cannot become an object type", () => {

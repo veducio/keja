@@ -125,6 +125,14 @@ export const projectErrors = {
     description: "A route lists middleware Keja did not create.",
     tip: "Pass functions created with defineMiddleware(...).",
   },
+  invalidRoute: {
+    scope: projectScope,
+    code: 2030,
+    name: "InvalidRoute",
+    description:
+      "A route definition has a method, path, or schema Keja cannot use.",
+    tip: "Use get, post, put, patch, or delete, a path that starts with /, and Zod schemas.",
+  },
   invalidConfigFile: {
     scope: projectScope,
     code: 2012,
@@ -138,7 +146,7 @@ export const projectErrors = {
     name: "DatabaseUrl",
     description:
       "The database is enabled and DATABASE_URL is missing or not a postgres URL.",
-    tip: "Set DATABASE_URL to a postgres connection string, or set db: false.",
+    tip: "Set DATABASE_URL to a postgres connection string, or set db.enabled to false.",
   },
   missingMigrations: {
     scope: projectScope,
@@ -175,12 +183,12 @@ export const projectErrors = {
     description: "Postgres rejected a migration.",
     tip: "Fix the SQL in that migration file.",
   },
-  ownedObject: {
+  ownedObjects: {
     scope: projectScope,
     code: 2021,
-    name: "OwnedObject",
-    description: "A table does not match the owned object shape.",
-    tip: "Add _id, _object, _tenant, and _archived with the Keja checks.",
+    name: "OwnedObjects",
+    description: "A table does not match the OwnedObjects shape.",
+    tip: "Add _id, _object, _tenant, _archived, _createdAt, and _updatedAt with the Keja checks.",
   },
   serviceMethod: {
     scope: projectScope,
@@ -188,6 +196,62 @@ export const projectErrors = {
     name: "ServiceMethod",
     description: "A service route uses a method other than POST.",
     tip: "Change the service route method to post.",
+  },
+  databaseInit: {
+    scope: projectScope,
+    code: 2022,
+    name: "DatabaseInit",
+    description: "The database is enabled and Postgres could not be reached.",
+    tip: "Check DATABASE_URL and that Postgres is running.",
+  },
+  argusInit: {
+    scope: projectScope,
+    code: 2023,
+    name: "ArgusInit",
+    description: "Argus is enabled and the first registration failed.",
+    tip: "Check the Argus URL, credentials, and catalog service names.",
+  },
+  vaultInit: {
+    scope: projectScope,
+    code: 2024,
+    name: "VaultInit",
+    description: "Vault is enabled and the token lookup failed.",
+    tip: "Check the Vault address, token, and namespace.",
+  },
+  dependencyNotMet: {
+    scope: projectScope,
+    code: 2025,
+    name: "DependencyNotMet",
+    description: "A feature was used while a feature it requires is disabled.",
+    tip: "Enable the required feature in keja.config.ts.",
+  },
+  invalidSeeder: {
+    scope: projectScope,
+    code: 2026,
+    name: "InvalidSeeder",
+    description: "A seeder does not describe a table and OwnedObjects rows.",
+    tip: "Pass a table name and objects with _id, _object, _tenant, _archived, _createdAt, and _updatedAt.",
+  },
+  invalidSeederFile: {
+    scope: projectScope,
+    code: 2027,
+    name: "InvalidSeederFile",
+    description: "A seed file does not export a seeder.",
+    tip: "Export defineSeeder(...) by name, or as the default export.",
+  },
+  invalidRepositorySql: {
+    scope: projectScope,
+    code: 2028,
+    name: "InvalidRepositorySql",
+    description: "A migration cannot be read as a repository table.",
+    tip: "Use CREATE TABLE or ALTER TABLE ... ADD COLUMN with a mapped column type and the OwnedObjects columns.",
+  },
+  invalidRepositoryFile: {
+    scope: projectScope,
+    code: 2029,
+    name: "InvalidRepositoryFile",
+    description: "keja.repositories.ts does not export repository flags.",
+    tip: "Default-export defineRepositories(...), and name tables that the migrations create.",
   },
   accessConfig: {
     scope: projectScope,
@@ -221,4 +285,11 @@ export class ProjectError extends Error {
 
 export function projectError(key: keyof typeof projectErrors, detail: string) {
   return new ProjectError(projectErrors[key], detail);
+}
+
+export class DependencyNotMet extends ProjectError {
+  constructor(feature: string, requires: string) {
+    super(projectErrors.dependencyNotMet, `${feature} requires ${requires}`);
+    this.name = "DependencyNotMet";
+  }
 }

@@ -14,12 +14,15 @@ import {
   type DatabaseConfig,
   loadConfig,
   type ProjectPaths,
+  type VaultConfig,
 } from "./config.ts";
+import { beginProjectReload, freshImportUrl } from "./reload-graph.ts";
 
 export type LoadedProject = {
   paths: ProjectPaths;
   name: string | null;
-  argus: ArgusConfig | null;
+  argus: ArgusConfig;
+  vault: VaultConfig;
   database: DatabaseConfig;
   versions: VersionDefinition[];
   publicRoutes: RouteDefinition[];
@@ -28,13 +31,20 @@ export type LoadedProject = {
   serviceMiddleware: MiddlewareDefinition<object>[];
 };
 
-export async function loadProject(root: string): Promise<LoadedProject> {
-  const loaded = await loadConfig(root);
+export async function loadProject(
+  root: string,
+  options?: { generation?: string },
+): Promise<LoadedProject> {
+  const generation = options?.generation;
+  if (generation) {
+    beginProjectReload(root, generation);
+  }
+  const loaded = await loadConfig(root, generation);
   const paths = loaded;
   if (!existsSync(paths.versioning)) {
     throw projectError("missingVersionFile", `Missing ${paths.versioning}`);
   }
-  const versioning = await import(pathToFileURL(paths.versioning).href);
+  const versioning = await import(projectHref(paths.versioning, generation));
   if (!isVersions(versioning.default)) {
     throw projectError(
       "invalidVersionFile",
@@ -47,22 +57,31 @@ export async function loadProject(root: string): Promise<LoadedProject> {
     paths,
     name: loaded.name,
     argus: loaded.argus,
+    vault: loaded.vault,
     database: loaded.database,
     versions: versioning.default.versions,
-    publicRoutes: await loadRoutes(publicDirectory),
-    publicMiddleware: await loadServerMiddleware(publicDirectory),
-    serviceRoutes: await loadRoutes(serviceDirectory),
-    serviceMiddleware: await loadServerMiddleware(serviceDirectory),
+    publicRoutes: await loadRoutes(publicDirectory, generation),
+    publicMiddleware: await loadServerMiddleware(publicDirectory, generation),
+    serviceRoutes: await loadRoutes(serviceDirectory, generation),
+    serviceMiddleware: await loadServerMiddleware(serviceDirectory, generation),
   };
 }
 
-async function loadRoutes(directory: string) {
+function projectHref(file: string, generation?: string) {
+  return generation
+    ? freshImportUrl(file, generation)
+    : pathToFileURL(file).href;
+}
+
+async function loadRoutes(directory: string, generation?: string) {
   if (!existsSync(directory)) {
     throw projectError("missingRouteDirectory", `Missing ${directory}`);
   }
   const routes: RouteDefinition[] = [];
   for (const file of await collectRouteFiles(directory)) {
-    const loaded = await import(pathToFileURL(path.join(directory, file)).href);
+    const loaded = await import(
+      projectHref(path.join(directory, file), generation)
+    );
     const exported = routesFromModule(loaded);
     if (exported.length === 0) {
       throw projectError(
@@ -75,12 +94,12 @@ async function loadRoutes(directory: string) {
   return routes;
 }
 
-async function loadServerMiddleware(directory: string) {
+async function loadServerMiddleware(directory: string, generation?: string) {
   const file = path.join(directory, "_middleware.ts");
   if (!existsSync(file)) {
     return [];
   }
-  const loaded = await import(pathToFileURL(file).href);
+  const loaded = await import(projectHref(file, generation));
   const exported = middlewareList(loaded.default);
   if (!exported) {
     throw projectError(

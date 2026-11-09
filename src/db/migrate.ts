@@ -115,7 +115,7 @@ export async function applyMigrations(
           ),
         );
         if (violations.length > 0) {
-          throw projectError("ownedObject", violations.join("; "));
+          throw projectError("ownedObjects", violations.join("; "));
         }
         await tx.unsafe(
           `insert into keja_migrations (id, checksum) values ('${sqlLiteral(file.file)}', '${sqlLiteral(file.checksum)}')`,

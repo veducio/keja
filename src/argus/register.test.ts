@@ -12,13 +12,14 @@ describe("argusRegistrations", () => {
   it("registers every reachable address for both surfaces", () => {
     const argus = defineConfig({
       argus: {
+        enabled: true,
         url: "https://argus.veducio.com",
         env: "staging",
         username: "argus",
         password: "secret",
       },
     }).argus;
-    if (!argus) {
+    if (!argus.enabled) {
       throw new Error("missing argus config");
     }
     const registrations = argusRegistrations({

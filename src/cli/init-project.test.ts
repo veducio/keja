@@ -149,15 +149,18 @@ describe("createProject", () => {
     expect(
       readFileSync(path.join(directory, "package.json"), "utf8"),
     ).toContain('"@veducio/keja": "^0.1.0"');
+    expect(
+      readFileSync(path.join(directory, "package.json"), "utf8"),
+    ).toContain('"dev": "keja dev"');
     expect(readFileSync(path.join(directory, ".npmrc"), "utf8")).toBe(
       "@veducio:registry=https://npm.pkg.github.com\n",
     );
     expect(
       readFileSync(path.join(directory, "keja.config.ts"), "utf8"),
-    ).toContain('public: "routes/public"');
+    ).toContain('public_path: "routes/public"');
     expect(
       readFileSync(path.join(directory, "keja.config.ts"), "utf8"),
-    ).toContain('service: "routes/service"');
+    ).toContain('service_path: "routes/service"');
     expect(
       readFileSync(path.join(directory, "tsconfig.json"), "utf8"),
     ).not.toContain("paths");

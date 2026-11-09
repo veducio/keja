@@ -1,3 +1,12 @@
+import { DependencyNotMet, projectError } from "../errors/framework-errors.ts";
+import { processValue } from "../process/slot.ts";
+import type { VaultSettings } from "../project/config.ts";
+
+const state = processValue("vault", () => ({
+  active: null as VaultSettings | null,
+  fetch: undefined as VaultClientOptions["fetch"] | undefined,
+}));
+
 export class VaultError extends Error {
   constructor(message: string) {
     super(message);
@@ -12,6 +21,35 @@ export type VaultClientOptions = {
   mount?: string;
   fetch?: (url: string, init?: RequestInit) => Promise<Response>;
 };
+
+export function setVault(settings: VaultSettings | null) {
+  state.active = settings;
+  state.fetch = undefined;
+}
+
+export async function connectVault(
+  settings: VaultSettings,
+  fetchImpl?: VaultClientOptions["fetch"],
+) {
+  const fetch = fetchImpl ?? globalThis.fetch;
+  let response: Response;
+  try {
+    response = await fetch(`${settings.address}/v1/auth/token/lookup-self`, {
+      headers: vaultHeaders(settings.token, settings.namespace),
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "request failed";
+    throw projectError("vaultInit", detail);
+  }
+  if (!response.ok) {
+    throw projectError(
+      "vaultInit",
+      (await vaultFailure(response, "auth/token/lookup-self")).message,
+    );
+  }
+  setVault(settings);
+  state.fetch = fetchImpl;
+}
 
 export function createVault(options: VaultClientOptions = {}) {
   const address = vaultAddress(options.address ?? envValue("VAULT_ADDR"));
@@ -52,6 +90,18 @@ export function createVault(options: VaultClientOptions = {}) {
 export function vaultSecret<
   Data extends Record<string, unknown> = Record<string, unknown>,
 >(path: string, options?: VaultClientOptions) {
+  if (!options) {
+    if (!state.active) {
+      throw new DependencyNotMet("vaultSecret", "vault");
+    }
+    return createVault({
+      address: state.active.address,
+      token: state.active.token,
+      namespace: state.active.namespace ?? undefined,
+      mount: state.active.mount,
+      fetch: state.fetch,
+    }).secret<Data>(path);
+  }
   return createVault(options).secret<Data>(path);
 }
 

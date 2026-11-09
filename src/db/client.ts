@@ -1,13 +1,17 @@
 import type { SQL } from "bun";
-import { assertOwnedCall } from "../object-id/owned.ts";
+import { DependencyNotMet } from "../errors/framework-errors.ts";
+import { processValue } from "../process/slot.ts";
+import { assertOwnedCall } from "../typeid/owned.ts";
 
-let current: SQL | null = null;
+const state = processValue("database", () => ({
+  client: null as SQL | null,
+}));
 
 function connected() {
-  if (!current) {
-    throw new Error("Database is disabled");
+  if (!state.client) {
+    throw new DependencyNotMet("DBCall", "db");
   }
-  return current;
+  return state.client;
 }
 
 export const DBCall = new Proxy(function DBCall() {}, {
@@ -39,7 +43,7 @@ export const DBCall = new Proxy(function DBCall() {}, {
 }) as unknown as SQL;
 
 export function setDatabase(client: SQL | null) {
-  current = client;
+  state.client = client;
 }
 
 function templateText(value: unknown) {

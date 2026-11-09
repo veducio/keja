@@ -85,6 +85,7 @@ export function formatIdentity(
   identity: { name: string; public: string[]; service: string[] },
   argus?: { url: string; env: string } | null,
   color = false,
+  vault?: { address: string; mount: string } | null,
 ) {
   const style = ink(color);
   const row = (label: string, value: string) =>
@@ -97,18 +98,27 @@ export function formatIdentity(
   if (argus) {
     lines.push(row("Argus", `${argus.url} (${argus.env})`));
   }
+  if (vault) {
+    lines.push(row("Vault", `${vault.address} (${vault.mount})`));
+  }
   return `\n${lines.join("\n")}\n`;
 }
 
 export function printIdentity(
   identity: { name: string; public: string[]; service: string[] },
   argus?: { url: string; env: string } | null,
+  vault?: { address: string; mount: string } | null,
 ) {
-  console.log(formatIdentity(identity, argus, process.stdout.isTTY === true));
+  console.log(
+    formatIdentity(identity, argus, process.stdout.isTTY === true, vault),
+  );
 }
 
 export function formatDatabase(
-  database: { migrations: string; applied: string[] } | null,
+  database:
+    | { migrations: string; applied: string[] }
+    | { connected: true }
+    | null,
   color = false,
 ) {
   const style = ink(color);
@@ -117,13 +127,19 @@ export function formatDatabase(
   if (!database) {
     return `\n${row("Database", "disabled")}\n`;
   }
+  if (!("applied" in database)) {
+    return `\n${row("Database", "postgres")}\n`;
+  }
   const applied =
     database.applied.length > 0 ? database.applied.join(", ") : "up to date";
   return `\n${row("Database", "postgres")}\n${row("Migrations", database.migrations)}\n${row("Applied", applied)}\n`;
 }
 
 export function printDatabase(
-  database: { migrations: string; applied: string[] } | null,
+  database:
+    | { migrations: string; applied: string[] }
+    | { connected: true }
+    | null,
 ) {
   console.log(formatDatabase(database, process.stdout.isTTY === true));
 }
@@ -132,6 +148,24 @@ export function printAddresses(publicUrl: string, serviceUrl: string) {
   console.log(
     formatAddresses(publicUrl, serviceUrl, process.stdout.isTTY === true),
   );
+}
+
+export function formatReloading(color = false) {
+  const style = ink(color);
+  return `\n  ${style.dim("reloading...")}\n`;
+}
+
+export function formatProjectReady(color = false) {
+  const style = ink(color);
+  return `\n  ${style.green("no issues found")}\n`;
+}
+
+export function printReloading() {
+  console.log(formatReloading(process.stdout.isTTY === true));
+}
+
+export function printProjectReady() {
+  console.log(formatProjectReady(process.stdout.isTTY === true));
 }
 
 function readProject(root: string) {

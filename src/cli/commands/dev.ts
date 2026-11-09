@@ -1,5 +1,5 @@
 import { defineCommand } from "citty";
-import { runProject } from "./../run-project.ts";
+import { runDev } from "../dev-reload.ts";
 
 export const dev = defineCommand({
   meta: {
@@ -7,6 +7,6 @@ export const dev = defineCommand({
     description: "Start the development server",
   },
   async run() {
-    await runProject({ wait: true });
+    await runDev();
   },
 });

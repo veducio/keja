@@ -8,8 +8,8 @@ describe("defineConfig", () => {
   it("uses the default project paths", () => {
     expect(defineConfig()).toMatchObject({
       versioning: "keja.versioning.ts",
-      public: "src/public",
-      service: "src/service",
+      public_path: "src/public",
+      service_path: "src/service",
     });
   });
 
@@ -17,24 +17,28 @@ describe("defineConfig", () => {
     expect(
       defineConfig({
         versioning: "config/versions.ts",
-        public: "routes/public",
+        public_path: "routes/public",
       }),
     ).toMatchObject({
       versioning: "config/versions.ts",
-      public: "routes/public",
-      service: "src/service",
+      public_path: "routes/public",
+      service_path: "src/service",
     });
   });
 
   it("keeps the database disabled until it is turned on", () => {
     expect(defineConfig().database).toEqual({ enabled: false });
-    expect(defineConfig({ db: false }).database).toEqual({ enabled: false });
-    expect(defineConfig({ db: true }).database).toEqual({
+    expect(defineConfig({ db: { enabled: false } }).database).toEqual({
+      enabled: false,
+    });
+    expect(defineConfig({ db: { enabled: true } }).database).toEqual({
       enabled: true,
       migrations: "migrations",
     });
     expect(
-      defineConfig({ db: { migrations: "db/migrations" } }).database,
+      defineConfig({
+        db: { enabled: true, migrations: "db/migrations" },
+      }).database,
     ).toEqual({
       enabled: true,
       migrations: "db/migrations",
@@ -42,8 +46,8 @@ describe("defineConfig", () => {
   });
 
   it("rejects an empty path", () => {
-    expect(() => defineConfig({ service: "  " })).toThrow(
-      "keja.config.ts service must be a non-empty path",
+    expect(() => defineConfig({ service_path: "  " })).toThrow(
+      "keja.config.ts service_path must be a non-empty path",
     );
   });
 
@@ -52,6 +56,7 @@ describe("defineConfig", () => {
       defineConfig({
         name: "billing",
         argus: {
+          enabled: true,
           url: "https://argus.veducio.com/",
           env: "staging",
           username: "argus",
@@ -60,6 +65,7 @@ describe("defineConfig", () => {
         },
       }).argus,
     ).toEqual({
+      enabled: true,
       url: "https://argus.veducio.com",
       env: "staging",
       username: "argus",
@@ -67,11 +73,35 @@ describe("defineConfig", () => {
       public: "billing",
       service: null,
     });
+    expect(defineConfig({ argus: { enabled: false } }).argus).toEqual({
+      enabled: false,
+    });
     expect(() =>
       defineConfig({
-        argus: { url: "argus.veducio.com", env: "staging" },
+        argus: { enabled: true, url: "argus.veducio.com", env: "staging" },
       }),
     ).toThrow("keja.config.ts argus.url must be an absolute http or https URL");
+  });
+
+  it("reads Vault settings from config", () => {
+    expect(
+      defineConfig({
+        vault: {
+          enabled: true,
+          address: "https://vault.example/",
+          token: "s.token",
+          namespace: "apps",
+          mount: "kv",
+        },
+      }).vault,
+    ).toEqual({
+      enabled: true,
+      address: "https://vault.example",
+      token: "s.token",
+      namespace: "apps",
+      mount: "kv",
+    });
+    expect(defineConfig().vault).toEqual({ enabled: false });
   });
 });
 
@@ -81,8 +111,9 @@ describe("loadConfig", () => {
     await expect(loadConfig(root)).resolves.toEqual({
       config: null,
       name: null,
-      argus: null,
+      argus: { enabled: false },
       database: { enabled: false },
+      vault: { enabled: false },
       versioning: path.resolve(root, "keja.versioning.ts"),
       public: path.resolve(root, "src/public"),
       service: path.resolve(root, "src/service"),
@@ -96,8 +127,8 @@ describe("loadConfig", () => {
         root,
         defineConfig({
           versioning: "versioning/api.ts",
-          public: "http/public",
-          service: "http/service",
+          public_path: "http/public",
+          service_path: "http/service",
         }),
       ),
     ).toEqual({

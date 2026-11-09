@@ -1,23 +1,34 @@
-import { isObjectType, ObjectIdError, parseObjectId } from "./id.ts";
+import { isObjectType, parseTypeId, TypeIdError } from "./id.ts";
 
-const reserved = new Set(["_id", "_object", "_tenant", "_archived"]);
+const reserved = new Set([
+  "_id",
+  "_object",
+  "_tenant",
+  "_archived",
+  "_createdAt",
+  "_updatedAt",
+]);
 
 export type OwnedObject = {
   _id: string;
   _object: string;
   _tenant: string;
   _archived: boolean;
+  _createdAt: Date;
+  _updatedAt: Date;
 } & Record<string, unknown>;
 
 export function assertOwnedObject(value: unknown): OwnedObject {
   const row = plainRow(value);
   if (!row) {
-    throw new ObjectIdError("owned object must be an object");
+    throw new TypeIdError("OwnedObjects must be an object");
   }
   assertId(row._id);
   assertObject(row._object);
   assertTenant(row._tenant);
   assertArchived(row._archived);
+  assertCreatedAt(row._createdAt);
+  assertUpdatedAt(row._createdAt, row._updatedAt);
   assertDomainKeys(row);
   return row as OwnedObject;
 }
@@ -31,7 +42,7 @@ export function assertOwnedCall(sql: string, values: readonly unknown[]) {
   if (kind === "insert" && rows.length === 0) {
     for (const column of reserved) {
       if (!namesColumn(sql, column)) {
-        throw new ObjectIdError(`insert must include ${column}`);
+        throw new TypeIdError(`insert must include ${column}`);
       }
     }
     return;
@@ -58,37 +69,61 @@ function assertPresentFields(row: Record<string, unknown>) {
   if ("_archived" in row) {
     assertArchived(row._archived);
   }
+  if ("_createdAt" in row) {
+    assertCreatedAt(row._createdAt);
+  }
+  if ("_updatedAt" in row) {
+    const created = "_createdAt" in row ? row._createdAt : row._updatedAt;
+    assertUpdatedAt(created, row._updatedAt);
+  }
   assertDomainKeys(row);
 }
 
 function assertId(value: unknown) {
-  if (typeof value !== "string" || !parseObjectId(value)) {
-    throw new ObjectIdError("owned object _id must be an object id");
+  if (typeof value !== "string" || !parseTypeId(value)) {
+    throw new TypeIdError("OwnedObjects _id must be a typeid");
   }
 }
 
 function assertObject(value: unknown) {
   if (typeof value !== "string" || !isObjectType(value)) {
-    throw new ObjectIdError("owned object _object must be an object type");
+    throw new TypeIdError("OwnedObjects _object must be an object type");
   }
 }
 
 function assertTenant(value: unknown) {
   if (typeof value !== "string" || value.trim() === "") {
-    throw new ObjectIdError("owned object _tenant must be a tenant id");
+    throw new TypeIdError("OwnedObjects _tenant must be a tenant id");
   }
 }
 
 function assertArchived(value: unknown) {
   if (typeof value !== "boolean") {
-    throw new ObjectIdError("owned object _archived must be a boolean");
+    throw new TypeIdError("OwnedObjects _archived must be a boolean");
+  }
+}
+
+function assertCreatedAt(value: unknown) {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    throw new TypeIdError("OwnedObjects _createdAt must be a timestamp");
+  }
+}
+
+function assertUpdatedAt(created: unknown, updated: unknown) {
+  if (!(updated instanceof Date) || Number.isNaN(updated.getTime())) {
+    throw new TypeIdError("OwnedObjects _updatedAt must be a timestamp");
+  }
+  if (created instanceof Date && updated.getTime() < created.getTime()) {
+    throw new TypeIdError(
+      "OwnedObjects _updatedAt must be at or after _createdAt",
+    );
   }
 }
 
 function assertDomainKeys(row: Record<string, unknown>) {
   for (const key of Object.keys(row)) {
     if (key.startsWith("_") && !reserved.has(key)) {
-      throw new ObjectIdError(`owned object field ${key} is reserved`);
+      throw new TypeIdError(`OwnedObjects field ${key} is reserved`);
     }
   }
 }
@@ -128,9 +163,22 @@ function rowsOf(values: readonly unknown[]) {
     const row = plainRow(value);
     if (row) {
       rows.push(row);
+      continue;
+    }
+    const nested = helperRows(value);
+    if (nested) {
+      rows.push(...rowsOf(nested));
     }
   }
   return rows;
+}
+
+function helperRows(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const helper = value as { value?: unknown };
+  return Array.isArray(helper.value) ? helper.value : null;
 }
 
 function plainRow(value: unknown) {

@@ -6,6 +6,7 @@ import {
   printDatabase,
   printIdentity,
   printProjectPaths,
+  printProjectReady,
 } from "./banner.ts";
 
 export type ProjectFailure = {
@@ -17,16 +18,26 @@ export type ProjectFailure = {
   tip?: string;
 };
 
+export function printServers(servers: Awaited<ReturnType<typeof listen>>) {
+  printProjectPaths(servers.paths);
+  printIdentity(
+    servers.identity,
+    servers.argus.enabled ? servers.argus : null,
+    servers.vault.enabled
+      ? { address: servers.vault.address, mount: servers.vault.mount }
+      : null,
+  );
+  printDatabase(servers.database);
+  printAddresses(
+    `http://${servers.publicServer.hostname}:${servers.publicServer.port}`,
+    `http://${servers.serviceServer.hostname}:${servers.serviceServer.port}`,
+  );
+  printProjectReady();
+}
+
 export async function runProject(options?: { wait?: boolean }) {
   try {
-    const servers = await listen();
-    printProjectPaths(servers.paths);
-    printIdentity(servers.identity, servers.argus);
-    printDatabase(servers.database);
-    printAddresses(
-      `http://${servers.publicServer.hostname}:${servers.publicServer.port}`,
-      `http://${servers.serviceServer.hostname}:${servers.serviceServer.port}`,
-    );
+    printServers(await listen());
   } catch (error) {
     console.error(
       formatProjectFailure(readProjectFailure(error), {
