@@ -42,7 +42,10 @@ export const _Post = defineRoute({
     }),
   },
   handler: async ({ body, respond }) => {
-    const post = await posts.insert({...createObjectRow("v1.posts", { tenant: exampleTenant }), ...body});
+    const post = await posts.insert({
+      ...createObjectRow("v1.posts", { tenant: exampleTenant }),
+      ...body,
+    });
     return respond.Post({
       ...post,
     });
@@ -65,7 +68,7 @@ export const _ArchiveById = defineRoute({
     }),
     Archived: response({
       code: 200,
-      json: z.object({message: z.literal("Archived")}),
+      json: z.object({ message: z.literal("Archived") }),
       const: { message: "Archived" },
     }),
     NotFound: response({
