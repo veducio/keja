@@ -61,6 +61,24 @@ jobs:
           printf '\n//npm.pkg.github.com/:_authToken=%s\n' "${GITHUB_TOKEN}" >> .npmrc
           if bun pm view "@veducio/keja@${version}" version >/dev/null 2>&1; then
             echo "@veducio/keja@${version} is already published."
+          else
+            bun publish
+          fi
+      - name: Publish keja to npm
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          HUSKY: 0
+        run: |
+          set -euo pipefail
+          if [[ -z "${NPM_TOKEN}" ]]; then
+            echo "Add the NPM_TOKEN secret before publishing keja to npm."
+            exit 1
+          fi
+          version="$(bun -p "require('./package.json').version")"
+          printf '\n//registry.npmjs.org/:_authToken=%s\n' "${NPM_TOKEN}" >> .npmrc
+          bun -e 'const pkg = await Bun.file("package.json").json(); pkg.name = "keja"; pkg.publishConfig = { registry: "https://registry.npmjs.org", access: "public" }; await Bun.write("package.json", JSON.stringify(pkg, null, 2) + "\n");'
+          if bun pm view "keja@${version}" version >/dev/null 2>&1; then
+            echo "keja@${version} is already on npm."
             exit 0
           fi
           bun publish

@@ -1,14 +1,24 @@
 ---
 
 title: Install
-description: Install Keja from GitHub Packages and create a project.
+description: Install Keja from npm or GitHub Packages and create a project.
 ---
 
-Install puts `@veducio/keja` on the machine and `keja init` creates the project. [Build first service](/build-first-service) is the next page. It serves `GET /v1/hello` from that project.
+Install puts Keja on the machine and `keja init` creates the project. [Build first service](/build-first-service) is the next page. It serves `GET /v1/hello` from that project.
 
-Keja publishes to GitHub Packages as `@veducio/keja`. The package is restricted. An install needs a token that can read packages from the `veducio` organization.
+Keja publishes to npm as `keja`. Imports from that package use `keja`.
 
-Add this `.npmrc` before installing:
+```shell
+bun add keja zod
+```
+
+```ts
+import { defineRoute, response } from "keja";
+```
+
+Keja also publishes to GitHub Packages as `@veducio/keja`. That package is restricted. An install needs a token that can read packages from the `veducio` organization, and imports use `@veducio/keja`.
+
+Add this `.npmrc` before installing `@veducio/keja`:
 
 ```txt
 @veducio:registry=https://npm.pkg.github.com
@@ -18,7 +28,7 @@ Add this `.npmrc` before installing:
 bun add @veducio/keja zod
 ```
 
-`keja init` creates a project from the starter that ships inside the package. Bun and Git must be installed. The destination must be empty. Init copies the starter, writes `package.json`, `keja.config.ts`, `tsconfig.json`, and `.npmrc`, adds a public `GET /hello` and a service `POST /ping`, runs `bun install`, then runs `git init`.
+`keja init` creates a project from the starter that ships inside the package. Bun and Git must be installed. The destination must be empty. Init copies the starter, writes `package.json`, `keja.config.ts`, and `tsconfig.json`, adds a public `GET /hello` and a service `POST /ping`, runs `bun install`, then runs `git init`. The new project depends on the package that ran `init`. An `@veducio/keja` install also writes `.npmrc` for GitHub Packages.
 
 ```shell
 keja init --name my-app --dir ./my-app --public ./src/public --service ./src/service

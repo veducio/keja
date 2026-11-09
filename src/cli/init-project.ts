@@ -148,7 +148,7 @@ export async function createProject(options: {
   if (!existsSync(envFile) && existsSync(envExample)) {
     await copyFile(envExample, envFile);
   }
-  const kejaVersion = await readKejaVersion(options.packageRoot);
+  const keja = await readKejaPackage(options.packageRoot);
   await writeFile(
     path.join(destination, "package.json"),
     `${JSON.stringify(
@@ -162,7 +162,7 @@ export async function createProject(options: {
           start: "keja start",
         },
         dependencies: {
-          "@veducio/keja": `^${kejaVersion}`,
+          [keja.name]: `^${keja.version}`,
           zod: "^4.6.7",
         },
       },
@@ -172,7 +172,10 @@ export async function createProject(options: {
   );
   await writeFile(
     path.join(destination, "keja.config.ts"),
-    configSource(options.answers.publicDir, options.answers.serviceDir),
+    sourceFor(
+      keja.name,
+      configSource(options.answers.publicDir, options.answers.serviceDir),
+    ),
   );
   await writeFile(
     path.join(destination, "tsconfig.json"),
@@ -196,27 +199,29 @@ export async function createProject(options: {
       2,
     )}\n`,
   );
-  await writeFile(
-    path.join(destination, ".npmrc"),
-    "@veducio:registry=https://npm.pkg.github.com\n",
-  );
+  if (keja.name.startsWith("@veducio/")) {
+    await writeFile(
+      path.join(destination, ".npmrc"),
+      "@veducio:registry=https://npm.pkg.github.com\n",
+    );
+  }
   await writeRoute(
     destination,
     options.answers.publicDir,
     "_middleware.ts",
-    publicMiddleware,
+    sourceFor(keja.name, publicMiddleware),
   );
   await writeRoute(
     destination,
     options.answers.publicDir,
     "hello.ts",
-    publicHello,
+    sourceFor(keja.name, publicHello),
   );
   await writeRoute(
     destination,
     options.answers.serviceDir,
     "ping.ts",
-    servicePing,
+    sourceFor(keja.name, servicePing),
   );
   const installCode = await options.run("bun", ["install"], destination);
   if (installCode !== 0) {
@@ -352,13 +357,21 @@ function routeFolder(value: string, label: string) {
   return cleaned;
 }
 
-async function readKejaVersion(packageRoot: string) {
+async function readKejaPackage(packageRoot: string) {
   const source = await readFile(path.join(packageRoot, "package.json"), "utf8");
-  const parsed = JSON.parse(source) as { version?: unknown };
+  const parsed = JSON.parse(source) as { version?: unknown; name?: unknown };
   if (typeof parsed.version !== "string" || parsed.version.trim() === "") {
     throw new Error("Keja package.json is missing a version.");
   }
-  return parsed.version.trim();
+  const name =
+    typeof parsed.name === "string" && parsed.name.trim() !== ""
+      ? parsed.name.trim()
+      : "@veducio/keja";
+  return { version: parsed.version.trim(), name };
+}
+
+function sourceFor(name: string, source: string) {
+  return source.replaceAll("@veducio/keja", name);
 }
 
 function configSource(publicDir: string, serviceDir: string) {

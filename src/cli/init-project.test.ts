@@ -186,6 +186,9 @@ describe("createProject", () => {
       "@veducio:registry=https://npm.pkg.github.com\n",
     );
     expect(
+      readFileSync(path.join(directory, "routes/public/hello.ts"), "utf8"),
+    ).toContain('from "@veducio/keja"');
+    expect(
       readFileSync(path.join(directory, "keja.config.ts"), "utf8"),
     ).toContain('public_path: "routes/public"');
     expect(
@@ -209,6 +212,40 @@ describe("createProject", () => {
     expect(() =>
       readFileSync(path.join(directory, "node_modules/left-behind/skip.txt")),
     ).toThrow();
+  });
+
+  it("installs the npm package name keja", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "keja-init-"));
+    const templateDir = path.join(root, "template");
+    const packageRoot = path.join(root, "keja");
+    mkdirSync(templateDir, { recursive: true });
+    mkdirSync(packageRoot, { recursive: true });
+    writeFileSync(
+      path.join(packageRoot, "package.json"),
+      JSON.stringify({ name: "keja", version: "0.2.0" }),
+    );
+    const directory = await createProject({
+      answers: {
+        name: "notes",
+        directory: "./notes",
+        publicDir: "src/public",
+        serviceDir: "src/service",
+      },
+      cwd: root,
+      templateDir,
+      packageRoot,
+      run: async () => 0,
+    });
+    const source = readFileSync(path.join(directory, "package.json"), "utf8");
+    expect(source).toContain('"keja": "^0.2.0"');
+    expect(source).not.toContain("@veducio/keja");
+    expect(
+      readFileSync(path.join(directory, "src/public/hello.ts"), "utf8"),
+    ).toContain('from "keja"');
+    expect(
+      readFileSync(path.join(directory, "keja.config.ts"), "utf8"),
+    ).toContain('from "keja"');
+    expect(() => readFileSync(path.join(directory, ".npmrc"))).toThrow();
   });
 
   it("stops when the destination already has files", async () => {
