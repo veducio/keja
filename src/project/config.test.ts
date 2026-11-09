@@ -100,6 +100,9 @@ describe("defineConfig", () => {
       token: "s.token",
       namespace: "apps",
       mount: "kv",
+      transit_key: null,
+      transit_mount: "transit",
+      grant_max_exp: 900,
     });
     expect(defineConfig().vault).toEqual({ enabled: false });
   });

@@ -24,6 +24,8 @@ export {
   DependencyNotMet,
   frameworkErrors,
 } from "../errors/framework-errors.ts";
+export type { Grant } from "../grant/grant.ts";
+export { grant, verifyGrant } from "../grant/grant.ts";
 export { defineConfig } from "../project/config.ts";
 export { defineRepositories } from "../repository/define.ts";
 export { repository } from "../repository/runtime.ts";

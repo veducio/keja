@@ -62,6 +62,7 @@ export function createVault(options: VaultClientOptions = {}) {
     options.mount ?? envValue("VAULT_KV_MOUNT") ?? "secret",
   );
   const fetchImpl = options.fetch ?? fetch;
+  const headers = () => vaultHeaders(token, namespace);
   return {
     async secret<
       Data extends Record<string, unknown> = Record<string, unknown>,
@@ -70,7 +71,7 @@ export function createVault(options: VaultClientOptions = {}) {
       const response = await fetchImpl(
         `${address}/v1/${mount}/data/${secretPath}`,
         {
-          headers: vaultHeaders(token, namespace),
+          headers: headers(),
         },
       );
       if (!response.ok) {
@@ -84,8 +85,75 @@ export function createVault(options: VaultClientOptions = {}) {
       }
       return body.data.data;
     },
+    transitKey(mountName: string, key: string) {
+      const transit = secretMount(mountName);
+      const name = secretMount(key);
+      return vaultSend<{ type?: unknown; latest_version?: unknown }>(
+        fetchImpl,
+        `${address}/v1/${transit}/keys/${name}`,
+        { headers: headers() },
+        `${transit}/keys/${name}`,
+      );
+    },
+    transitSign(mountName: string, key: string, body: TransitSignBody) {
+      const transit = secretMount(mountName);
+      const name = secretMount(key);
+      return vaultSend<{ signature?: unknown }>(
+        fetchImpl,
+        `${address}/v1/${transit}/sign/${name}`,
+        {
+          method: "POST",
+          headers: jsonHeaders(headers()),
+          body: JSON.stringify(body),
+        },
+        `${transit}/sign/${name}`,
+      );
+    },
+    transitVerify(mountName: string, key: string, body: TransitVerifyBody) {
+      const transit = secretMount(mountName);
+      const name = secretMount(key);
+      return vaultSend<{ valid?: unknown }>(
+        fetchImpl,
+        `${address}/v1/${transit}/verify/${name}`,
+        {
+          method: "POST",
+          headers: jsonHeaders(headers()),
+          body: JSON.stringify(body),
+        },
+        `${transit}/verify/${name}`,
+      );
+    },
   };
 }
+
+export function openVault(feature: string) {
+  const settings = requireVaultSettings(feature);
+  return createVault({
+    address: settings.address,
+    token: settings.token,
+    namespace: settings.namespace ?? undefined,
+    mount: settings.mount,
+    fetch: state.fetch,
+  });
+}
+
+export function requireVaultSettings(feature: string) {
+  if (!state.active) {
+    throw new DependencyNotMet(feature, "vault");
+  }
+  return state.active;
+}
+
+type TransitSignBody = {
+  input: string;
+  hash_algorithm?: string;
+  marshaling_algorithm?: string;
+  signature_algorithm?: string;
+};
+
+type TransitVerifyBody = TransitSignBody & {
+  signature: string;
+};
 
 export function vaultSecret<
   Data extends Record<string, unknown> = Record<string, unknown>,
@@ -139,6 +207,29 @@ function normalizePath(path: string) {
     throw new VaultError(`invalid Vault secret path: ${path}`);
   }
   return parts.map((part) => encodeURIComponent(part)).join("/");
+}
+
+async function vaultSend<Data>(
+  fetchImpl: VaultClientOptions["fetch"],
+  url: string,
+  init: RequestInit,
+  path: string,
+) {
+  const fetch = fetchImpl ?? globalThis.fetch;
+  const response = await fetch(url, init);
+  if (!response.ok) {
+    throw await vaultFailure(response, path);
+  }
+  const body = (await response.json()) as { data?: Data };
+  if (!body.data || typeof body.data !== "object") {
+    throw new VaultError(`Vault ${path} has no data`);
+  }
+  return body.data;
+}
+
+function jsonHeaders(headers: Headers) {
+  headers.set("Content-Type", "application/json");
+  return headers;
 }
 
 function vaultHeaders(token: string, namespace: string | null) {

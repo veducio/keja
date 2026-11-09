@@ -85,6 +85,9 @@ describe("createVault", () => {
         token: "s.token",
         namespace: null,
         mount: "secret",
+        transit_key: null,
+        transit_mount: "transit",
+        grant_max_exp: 900,
       },
       async (url) => {
         urls.push(url);
@@ -108,6 +111,9 @@ describe("createVault", () => {
           token: "s.token",
           namespace: null,
           mount: "secret",
+          transit_key: null,
+          transit_mount: "transit",
+          grant_max_exp: 900,
         },
         async () =>
           Response.json({ errors: ["permission denied"] }, { status: 403 }),

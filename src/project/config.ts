@@ -49,6 +49,9 @@ export type VaultSettings = {
   token: string;
   namespace: string | null;
   mount: string;
+  transit_key: string | null;
+  transit_mount: string;
+  grant_max_exp: number;
 };
 
 export type VaultConfigInput = {
@@ -57,6 +60,9 @@ export type VaultConfigInput = {
   token?: string;
   namespace?: string;
   mount?: string;
+  transit_key?: string;
+  transit_mount?: string;
+  grant_max_exp?: number;
 };
 
 export type VaultConfig =
@@ -289,6 +295,15 @@ function configVault(value: VaultConfigInput | undefined): VaultConfig {
     ),
     namespace: optionalText(namespace, "vault.namespace", "namespace"),
     mount: vaultMount(value.mount ?? configEnv("VAULT_KV_MOUNT") ?? "secret"),
+    transit_key:
+      value.transit_key === undefined
+        ? null
+        : vaultName(value.transit_key, "vault.transit_key"),
+    transit_mount: vaultName(
+      value.transit_mount ?? "transit",
+      "vault.transit_mount",
+    ),
+    grant_max_exp: grantMaxExp(value.grant_max_exp),
   };
 }
 
@@ -325,14 +340,36 @@ function absoluteHttpUrl(value: unknown, field: string) {
 }
 
 function vaultMount(value: string) {
-  const mount = value.trim().replace(/^\/+|\/+$/g, "");
-  if (!/^[A-Za-z0-9_-]+$/.test(mount)) {
+  return vaultName(value, "vault.mount");
+}
+
+function vaultName(value: string, field: string) {
+  const name = value.trim().replace(/^\/+|\/+$/g, "");
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) {
     throw projectError(
       "invalidConfigFile",
-      `keja.config.ts vault.mount must be a mount name`,
+      `keja.config.ts ${field} must be a name`,
     );
   }
-  return mount;
+  return name;
+}
+
+function grantMaxExp(value: number | undefined) {
+  if (value === undefined) {
+    return 900;
+  }
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > 86400
+  ) {
+    throw projectError(
+      "invalidConfigFile",
+      "keja.config.ts vault.grant_max_exp must be a whole number of seconds from 1 to 86400",
+    );
+  }
+  return value;
 }
 
 function configEnv(name: string) {

@@ -32,7 +32,7 @@ The concept pages follow the order a service meets them.
 | [TypeIDs](/type-ids)           | The time-ordered `_id`                                 |
 | [Database](/database)          | Migrations, repositories, and seed data                |
 | [Argus](/argus)                | Finding another service and calling it                 |
-| [Vault](/vault)                | Reading one secret                                     |
+| [Vault](/vault)                | Reading one secret and signing grants                  |
 | [Cloudflare Access](/access)   | Checking the caller’s Access token                     |
 
 [Commands](/commands) and [Errors](/errors) are the lookup pages.

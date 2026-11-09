@@ -59,15 +59,15 @@ export default defineConfig({
 });
 ```
 
-| Field          | Default                               | Role                                                                   |
-| -------------- | ------------------------------------- | ---------------------------------------------------------------------- |
-| `name`         | package name, then the directory name | Identity and Argus catalog name                                        |
-| `versioning`   | `keja.versioning.ts`                  | Version catalog                                                        |
-| `public_path`  | `src/public`                          | Public route folder                                                    |
-| `service_path` | `src/service`                         | Service route folder                                                   |
-| `db`           | `{ enabled: false }`                  | Postgres. `enabled: true` uses `migrations` unless `migrations` is set |
-| `argus`        | `{ enabled: false }`                  | Service registry. `url` and `env` are required when enabled            |
-| `vault`        | `{ enabled: false }`                  | KV v2 client. Address and token are required when enabled              |
+| Field          | Default                               | Role                                                                        |
+| -------------- | ------------------------------------- | --------------------------------------------------------------------------- |
+| `name`         | package name, then the directory name | Identity and Argus catalog name                                             |
+| `versioning`   | `keja.versioning.ts`                  | Version catalog                                                             |
+| `public_path`  | `src/public`                          | Public route folder                                                         |
+| `service_path` | `src/service`                         | Service route folder                                                        |
+| `db`           | `{ enabled: false }`                  | Postgres. `enabled: true` uses `migrations` unless `migrations` is set      |
+| `argus`        | `{ enabled: false }`                  | Service registry. `url` and `env` are required when enabled                 |
+| `vault`        | `{ enabled: false }`                  | KV v2 client and grant signing. Address and token are required when enabled |
 
 `argus.username` and `argus.password` are both set or both omitted. `argus.public` and `argus.service` override the catalog names. See [Argus](/argus) and [Vault](/vault).
 
