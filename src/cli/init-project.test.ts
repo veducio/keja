@@ -214,7 +214,7 @@ describe("createProject", () => {
     ).toThrow();
   });
 
-  it("installs the npm package name keja", async () => {
+  it("leaves npm as the registry for the public package", async () => {
     const root = mkdtempSync(path.join(tmpdir(), "keja-init-"));
     const templateDir = path.join(root, "template");
     const packageRoot = path.join(root, "keja");
@@ -222,7 +222,14 @@ describe("createProject", () => {
     mkdirSync(packageRoot, { recursive: true });
     writeFileSync(
       path.join(packageRoot, "package.json"),
-      JSON.stringify({ name: "keja", version: "0.2.0" }),
+      JSON.stringify({
+        name: "@veducio/keja",
+        version: "0.2.0",
+        publishConfig: {
+          registry: "https://registry.npmjs.org",
+          access: "public",
+        },
+      }),
     );
     const directory = await createProject({
       answers: {
@@ -237,14 +244,13 @@ describe("createProject", () => {
       run: async () => 0,
     });
     const source = readFileSync(path.join(directory, "package.json"), "utf8");
-    expect(source).toContain('"keja": "^0.2.0"');
-    expect(source).not.toContain("@veducio/keja");
+    expect(source).toContain('"@veducio/keja": "^0.2.0"');
     expect(
       readFileSync(path.join(directory, "src/public/hello.ts"), "utf8"),
-    ).toContain('from "keja"');
+    ).toContain('from "@veducio/keja"');
     expect(
       readFileSync(path.join(directory, "keja.config.ts"), "utf8"),
-    ).toContain('from "keja"');
+    ).toContain('from "@veducio/keja"');
     expect(() => readFileSync(path.join(directory, ".npmrc"))).toThrow();
   });
 

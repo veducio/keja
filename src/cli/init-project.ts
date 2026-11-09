@@ -199,7 +199,7 @@ export async function createProject(options: {
       2,
     )}\n`,
   );
-  if (keja.name.startsWith("@veducio/")) {
+  if (usesGitHubPackages(keja)) {
     await writeFile(
       path.join(destination, ".npmrc"),
       "@veducio:registry=https://npm.pkg.github.com\n",
@@ -359,7 +359,11 @@ function routeFolder(value: string, label: string) {
 
 async function readKejaPackage(packageRoot: string) {
   const source = await readFile(path.join(packageRoot, "package.json"), "utf8");
-  const parsed = JSON.parse(source) as { version?: unknown; name?: unknown };
+  const parsed = JSON.parse(source) as {
+    version?: unknown;
+    name?: unknown;
+    publishConfig?: { registry?: unknown };
+  };
   if (typeof parsed.version !== "string" || parsed.version.trim() === "") {
     throw new Error("Keja package.json is missing a version.");
   }
@@ -367,7 +371,18 @@ async function readKejaPackage(packageRoot: string) {
     typeof parsed.name === "string" && parsed.name.trim() !== ""
       ? parsed.name.trim()
       : "@veducio/keja";
-  return { version: parsed.version.trim(), name };
+  const registry =
+    typeof parsed.publishConfig?.registry === "string"
+      ? parsed.publishConfig.registry
+      : "";
+  return { version: parsed.version.trim(), name, registry };
+}
+
+function usesGitHubPackages(keja: { name: string; registry: string }) {
+  return (
+    keja.name.startsWith("@veducio/") &&
+    !keja.registry.includes("registry.npmjs.org")
+  );
 }
 
 function sourceFor(name: string, source: string) {

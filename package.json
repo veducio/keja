@@ -15,7 +15,8 @@
   "files": [
     "src",
     "examples/starter",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
   "bin": {
