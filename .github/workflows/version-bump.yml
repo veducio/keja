@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: version-bump-${{ github.ref }}
@@ -37,6 +38,8 @@ jobs:
     needs: test
     if: "github.event_name == 'push' && (github.ref == 'refs/heads/production' || github.ref == 'refs/heads/main') && !startsWith(github.event.head_commit.message, 'chore: release')"
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,6 +52,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Bump version from commit messages
+        id: release
         env:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.event.after }}
@@ -67,3 +71,13 @@ jobs:
           fi
           bun pm version "${bump}" -m "chore: release %s"
           git push --follow-tags origin "${GITHUB_REF_NAME}"
+          version="$(bun -p "require('./package.json').version")"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: bump
+    if: needs.bump.outputs.tag != ''
+    uses: ./.github/workflows/publish.yml
+    with:
+      ref: ${{ needs.bump.outputs.tag }}
+    secrets: inherit

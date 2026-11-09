@@ -4,6 +4,18 @@ on:
   push:
     tags:
       - "v*"
+  workflow_call:
+    inputs:
+      ref:
+        description: Tag to publish, such as v0.2.0
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag to publish, such as v0.2.0
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -18,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
@@ -34,12 +48,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HUSKY: 0
+          PUBLISH_REF: ${{ inputs.ref || github.ref_name }}
         run: |
           set -euo pipefail
           version="$(bun -p "require('./package.json').version")"
-          tag="${GITHUB_REF_NAME#v}"
+          ref="${PUBLISH_REF#refs/tags/}"
+          tag="${ref#v}"
           if [[ "${tag}" != "${version}" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match package version ${version}."
+            echo "Tag ${ref} does not match package version ${version}."
             exit 1
           fi
           printf '\n//npm.pkg.github.com/:_authToken=%s\n' "${GITHUB_TOKEN}" >> .npmrc
