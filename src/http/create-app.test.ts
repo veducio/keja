@@ -96,10 +96,23 @@ describe("createHttpApp", () => {
     const document = (await spec.json()) as {
       openapi: string;
       paths: Record<string, unknown>;
+      tags?: { name: string }[];
       servers?: { url: string }[];
     };
     expect(document.openapi).toMatch(/^3\./);
     expect(document.paths["/v1/users/{id}"]).toBeDefined();
+    expect(document.paths["/{version}/batch"]).toBeDefined();
+    expect(document.paths["/v1/batch"]).toBeUndefined();
+    expect(document.paths["/v2/batch"]).toBeUndefined();
+    expect(document.tags?.map((tag) => tag.name)).toEqual([
+      "Batch",
+      "v1",
+      "v2",
+    ]);
+    expect(
+      (document.paths["/v1/users/{id}"] as { get?: { tags?: string[] } }).get
+        ?.tags,
+    ).toEqual(["v1"]);
     expect(document.servers).toEqual([{ url: "http://127.0.0.1:3500" }]);
 
     const serviceSpec = await serviceApp.request("/_openapi.json");
@@ -336,5 +349,133 @@ describe("createHttpApp", () => {
     await expect(result.json()).resolves.toMatchObject(
       frameworkErrors.invalidResponse,
     );
+  });
+
+  it("runs named routes from a versioned batch", async () => {
+    const batch = await publicApp.request("/v2/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          {
+            method: "get",
+            path: "/users/:id",
+            params: { id: "ada" },
+          },
+          {
+            method: "get",
+            path: "/users/:id",
+            params: { id: "" },
+          },
+          {
+            method: "get",
+            path: "/missing",
+          },
+        ],
+      }),
+    });
+    expect(batch.status).toBe(207);
+    await expect(batch.json()).resolves.toEqual({
+      results: [
+        { status: 200, body: { id: "ada" } },
+        {
+          status: 400,
+          body: expect.objectContaining(frameworkErrors.invalidRequest),
+        },
+        { status: 404, body: frameworkErrors.notFound },
+      ],
+    });
+
+    const service = await serviceApp.request("/latest/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          { method: "post", path: "/jobs", body: { name: "sync" } },
+          { method: "get", path: "/jobs" },
+        ],
+      }),
+    });
+    expect(service.status).toBe(207);
+    await expect(service.json()).resolves.toEqual({
+      results: [
+        { status: 201, body: { name: "sync" } },
+        { status: 405, body: frameworkErrors.methodNotAllowed },
+      ],
+    });
+
+    const empty = await publicApp.request("/v1/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ requests: [] }),
+    });
+    expect(empty.status).toBe(400);
+  });
+
+  it("turns batch off when disabled", async () => {
+    const app = createHttpApp({
+      title: "Public",
+      versions,
+      routes: publicRoutes,
+      batch: false,
+    });
+    const missing = await app.request("/v1/batch", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        requests: [
+          { method: "get", path: "/users/:id", params: { id: "ada" } },
+        ],
+      }),
+    });
+    expect(missing.status).toBe(404);
+    const document = (await (await app.request("/_openapi.json")).json()) as {
+      paths: Record<string, unknown>;
+    };
+    expect(document.paths["/{version}/batch"]).toBeUndefined();
+  });
+
+  it("uses an optional route name in OpenAPI", async () => {
+    const app = createHttpApp({
+      title: "Public",
+      versions,
+      routes: [
+        defineRoute({
+          method: "get",
+          path: "/named",
+          name: "Named route",
+          version: "v1",
+          responses: {
+            Ok: response({ code: 200, json: z.object({}) }),
+          },
+          handler: ({ respond }) => respond.Ok({}),
+        }),
+      ],
+    });
+    const document = (await (await app.request("/_openapi.json")).json()) as {
+      paths: Record<string, { get?: { summary?: string; tags?: string[] } }>;
+    };
+    expect(document.paths["/v1/named"]?.get?.summary).toBe("Named route");
+    expect(document.paths["/v1/named"]?.get?.tags).toEqual(["v1"]);
+  });
+
+  it("reserves POST /batch", () => {
+    expect(() =>
+      createHttpApp({
+        title: "Public",
+        versions,
+        routes: [
+          defineRoute({
+            method: "post",
+            path: "/batch",
+            version: "v1",
+            responses: {
+              Ok: response({ code: 200, json: z.object({}) }),
+            },
+            handler: ({ respond }) => respond.Ok({}),
+          }),
+        ],
+      }),
+    ).toThrow("POST /batch is reserved");
   });
 });

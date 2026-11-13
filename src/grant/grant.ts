@@ -1,9 +1,12 @@
-import { decodeJwt, decodeProtectedHeader, type JWTPayload } from "jose";
 import {
-  openVault,
-  requireVaultSettings,
-  VaultError,
-} from "../vault/client.ts";
+  decodeJwt,
+  decodeProtectedHeader,
+  type JWTPayload,
+  jwtVerify,
+  SignJWT,
+} from "jose";
+import { openVault, VaultError } from "../vault/client.ts";
+import { requireGrants } from "./settings.ts";
 
 export type Grant = {
   subject: string;
@@ -36,23 +39,30 @@ const keySpecs: Record<string, KeySpec> = {
 };
 
 export async function grant(input: GrantInput) {
-  const settings = grantSettings("grant");
+  const settings = requireGrants("grant");
   const subject = requiredText(input.subject, "subject");
   const action = requiredText(input.action, "action");
-  const lifetime = lifetimeSeconds(input.exp, settings.grant_max_exp);
+  const lifetime = lifetimeSeconds(input.exp, settings.max_exp);
   const context = contextObject(input.context);
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    sub: subject,
+    action,
+    iat: now,
+    exp: now + lifetime,
+    context,
+  };
+  if (settings.mode === "secret") {
+    return new SignJWT({ action, context })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setSubject(subject)
+      .setIssuedAt(now)
+      .setExpirationTime(now + lifetime)
+      .sign(secretKey(settings.secret));
+  }
   const vault = openVault("grant");
   const key = await readKey(vault, settings);
-  const now = Math.floor(Date.now() / 1000);
-  const body = base64url(
-    JSON.stringify({
-      sub: subject,
-      action,
-      iat: now,
-      exp: now + lifetime,
-      context,
-    }),
-  );
+  const body = base64url(JSON.stringify(payload));
   const header = base64url(
     JSON.stringify({ alg: key.alg, typ: "JWT", kid: String(key.version) }),
   );
@@ -70,11 +80,26 @@ export async function grant(input: GrantInput) {
 }
 
 export async function verifyGrant(token: string, options: { action: string }) {
-  const settings = grantSettings("verifyGrant");
+  const settings = requireGrants("verifyGrant");
   const action = requiredText(options.action, "action");
   const parts = token.split(".");
   if (parts.length !== 3 || parts.some((part) => part.length === 0)) {
     throw new VaultError("grant token is unreadable");
+  }
+  if (settings.mode === "secret") {
+    try {
+      const verified = await jwtVerify(token, secretKey(settings.secret), {
+        algorithms: ["HS256"],
+        clockTolerance: 0,
+        currentDate: new Date(Date.now()),
+      });
+      return claims(verified.payload, action);
+    } catch (error) {
+      if (error instanceof VaultError) {
+        throw error;
+      }
+      throw new VaultError("grant signature was rejected");
+    }
   }
   const header = decodeProtectedHeader(token);
   const payload = decodeJwt(token);
@@ -99,14 +124,6 @@ export async function verifyGrant(token: string, options: { action: string }) {
     throw new VaultError("grant signature was rejected");
   }
   return claims(payload, action);
-}
-
-function grantSettings(feature: "grant" | "verifyGrant") {
-  const settings = requireVaultSettings(feature);
-  if (!settings.transit_key) {
-    throw new VaultError("vault transit key is required");
-  }
-  return settings as typeof settings & { transit_key: string };
 }
 
 async function readKey(
@@ -160,6 +177,10 @@ function vaultSignature(value: unknown) {
     version: match[1],
     segment: Buffer.from(match[2], "base64").toString("base64url"),
   };
+}
+
+function secretKey(secret: string) {
+  return new TextEncoder().encode(secret);
 }
 
 function claims(payload: JWTPayload, action: string): Grant {

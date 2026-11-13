@@ -183,4 +183,4 @@ curl http://127.0.0.1:3000/v1/notes
 
 The body is `{ "notes": [], "nextCursor": null }` until a row exists. `notes.meta` is the stored row, including `_id` and the timestamps. `notes.schema` is the domain columns only, here `message`. `keja seed` inserts starter rows. The Database page shows `defineSeeder`.
 
-Argus, Vault, and Cloudflare Access stay off until a service needs them.
+Argus, Vault, Grants, and Cloudflare Access stay off until a service needs them. Batch is on by default. Set `batch: false` in `keja.config.ts` to turn `POST /{version}/batch` off.

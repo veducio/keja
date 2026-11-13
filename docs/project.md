@@ -56,6 +56,12 @@ export default defineConfig({
     address: "https://vault.example",
     token: "s.token",
   },
+  grants: {
+    enabled: true,
+    mode: "transit",
+    transit_key: "keja-grants",
+  },
+  batch: true,
 });
 ```
 
@@ -67,22 +73,25 @@ export default defineConfig({
 | `service_path` | `src/service`                         | Service route folder                                                        |
 | `db`           | `{ enabled: false }`                  | Postgres. `enabled: true` uses `migrations` unless `migrations` is set      |
 | `argus`        | `{ enabled: false }`                  | Service registry. `url` and `env` are required when enabled                 |
-| `vault`        | `{ enabled: false }`                  | KV v2 client and grant signing. Address and token are required when enabled |
+| `vault`        | `{ enabled: false }`                  | KV v2 client. Address and token are required when enabled                   |
+| `grants`       | `{ enabled: false }`                  | Grant JWTs. `mode` is `transit` or `secret`. See [Grants](/grants)          |
+| `batch`        | `{ enabled: true }`                   | `POST /{version}/batch`. Set `false` or `{ enabled: false }` to turn it off |
 
-`argus.username` and `argus.password` are both set or both omitted. `argus.public` and `argus.service` override the catalog names. See [Argus](/argus) and [Vault](/vault).
+`argus.username` and `argus.password` are both set or both omitted. `argus.public` and `argus.service` override the catalog names. See [Argus](/argus), [Vault](/vault), and [Grants](/grants).
 
 `name` in config is used as written. Otherwise Keja reads `package.json` and drops a scope, so `@veducio/billing` becomes `billing`. With no package name, the directory name is used.
 
 ## Environment
 
-| Variable                 | Required                  | Role                                             |
-| ------------------------ | ------------------------- | ------------------------------------------------ |
-| `HOST`                   | yes                       | Bind address                                     |
-| `HTTP_PORT`              | yes                       | Public server port, `1`–`65535`                  |
-| `HTTP_SERVICE_PORT`      | yes                       | Service server port, `1`–`65535`                 |
-| `OPENAPI_SERVER`         | no                        | `servers[0].url` in the public OpenAPI document  |
-| `OPENAPI_SERVICE_SERVER` | no                        | `servers[0].url` in the service OpenAPI document |
-| `DATABASE_URL`           | when `db.enabled` is true | `postgres://` or `postgresql://`                 |
+| Variable                 | Required                                                                     | Role                                             |
+| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------ |
+| `HOST`                   | yes                                                                          | Bind address                                     |
+| `HTTP_PORT`              | yes                                                                          | Public server port, `1`–`65535`                  |
+| `HTTP_SERVICE_PORT`      | yes                                                                          | Service server port, `1`–`65535`                 |
+| `OPENAPI_SERVER`         | no                                                                           | `servers[0].url` in the public OpenAPI document  |
+| `OPENAPI_SERVICE_SERVER` | no                                                                           | `servers[0].url` in the service OpenAPI document |
+| `DATABASE_URL`           | when `db.enabled` is true                                                    | `postgres://` or `postgresql://`                 |
+| `GRANT_SECRET`           | when grants use `mode: "secret"` without a value in config or `secret_vault` | HS256 signing secret                             |
 
 An OpenAPI URL must be an absolute `http` or `https` URL.
 
@@ -90,4 +99,4 @@ An OpenAPI URL must be an absolute `http` or `https` URL.
 
 After a successful listen, Keja prints the loaded paths, the identity, the database, and the bind addresses. The config line is the absolute path of `keja.config.ts`, or `defaults` when that file is absent. Database is `disabled`, or `postgres` when the pool is open. Migrations are applied by `keja migrate`. Argus and Vault are printed when they are enabled.
 
-When `db`, `argus`, or `vault` is enabled, Keja checks that service before either server listens. A failed check throws `ProjectError`. `keja dev` prints it and waits. `keja start` prints it and exits `1`.
+When `db`, `argus`, `vault`, or `grants` is enabled, Keja checks that service before either server listens. Transit grants and `secret_vault` need Vault on. A failed check throws `ProjectError`. `keja dev` prints it and waits. `keja start` prints it and exits `1`.

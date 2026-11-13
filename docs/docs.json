@@ -33,7 +33,7 @@
       },
       {
         "group": "Integrations",
-        "pages": ["argus", "vault", "access"]
+        "pages": ["argus", "vault", "grants", "access"]
       }
     ]
   }

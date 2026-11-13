@@ -15,6 +15,7 @@ import { z } from "zod";
 export default defineRoute({
   method: "get",
   path: "/users/:id",
+  name: "Get user",
   version: "v1",
   request: {
     params: z.object({ id: z.string().min(1) }),
@@ -26,7 +27,7 @@ export default defineRoute({
 });
 ```
 
-`method` is `get`, `post`, `put`, `patch`, or `delete`. `path` starts with `/` and can include `:name` parameters at any depth. A wrong method, path, or Zod schema fails when the route is defined, as project error `2030`. `version` must be a version id from `keja.versioning.ts`, such as `v1`. `request` may declare `params`, `query`, and `body` as Zod schemas. A failed parse returns HTTP `400` and framework error `1003`.
+`method` is `get`, `post`, `put`, `patch`, or `delete`. `path` starts with `/` and can include `:name` parameters at any depth. `name` is optional. When set, Scalar shows it as the operation summary. Routes are grouped in Scalar by their `version` tag. A wrong method, path, or Zod schema fails when the route is defined, as project error `2030`. `version` must be a version id from `keja.versioning.ts`, such as `v1`. `request` may declare `params`, `query`, and `body` as Zod schemas. A failed parse returns HTTP `400` and framework error `1003`.
 
 ## Files
 
@@ -52,3 +53,26 @@ POST /current/jobs
 ```
 
 `/v1/users/ada` looks up version `v1` and path `/users/:id`. Version tokens are described in [Versioning](/versioning).
+
+## Batch
+
+`POST /{version}/batch` runs several of those routes under one version token. The token is the same one a single request uses: `v1`, a release date, `latest`, or `current`. The body names each call. `path` is the route path, including `:name` where the route has parameters. `params`, `query`, and `body` are the values that route’s schemas parse. A route that declares no body omits `body`.
+
+```json
+{
+  "requests": [
+    {
+      "method": "get",
+      "path": "/users/:id",
+      "params": { "id": "ada" }
+    },
+    {
+      "method": "post",
+      "path": "/jobs",
+      "body": { "name": "sync" }
+    }
+  ]
+}
+```
+
+The response is HTTP `207` Multi-Response and a `results` array in the same order. Each result has the status and JSON body that call would have returned on its own, including `400`, `404`, and `405`. One failed call does not stop the others. The batch itself is `400` when `requests` is missing, empty, or longer than 25, or when a call omits `method` or `path`. `POST /batch` is reserved, so a project route cannot use that method and path. The service server still accepts only POST calls inside the batch. Scalar lists one `POST /{version}/batch` entry under the Batch tag. Set `batch: false` in `keja.config.ts` to turn batch off.

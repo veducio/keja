@@ -78,6 +78,7 @@ export type RouteDefinition = {
   method: HttpMethod;
   path: string;
   version: string;
+  name: string | null;
   request: RequestSchemas;
   responses: RouteResponse[];
   middleware: readonly MiddlewareDefinition<object>[];
@@ -124,6 +125,7 @@ export function defineRoute<
 >(definition: {
   method: HttpMethod;
   path: string;
+  name?: string;
   version: VersionId<Version> extends never
     ? "Version must use the form v1, v2, v3"
     : Version;
@@ -150,6 +152,17 @@ export function defineRoute<
       `Path ${String(definition.path)} must start with /`,
     );
   }
+  const name =
+    definition.name === undefined
+      ? null
+      : typeof definition.name === "string" && definition.name.trim() !== ""
+        ? definition.name.trim()
+        : (() => {
+            throw projectError(
+              "invalidRoute",
+              `${definition.method.toUpperCase()} ${definition.path} name must be a non-empty string`,
+            );
+          })();
   const request = definition.request as RequestSchemas | undefined;
   if (request) {
     for (const key of ["params", "query", "body"] as const) {
@@ -229,6 +242,7 @@ export function defineRoute<
     method: definition.method,
     path: definition.path,
     version: definition.version,
+    name,
     request: definition.request ?? {},
     responses,
     middleware,

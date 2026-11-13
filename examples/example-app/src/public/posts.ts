@@ -56,6 +56,7 @@ export const _ArchiveById = defineRoute({
   method: "post",
   path: "/posts/:id/archive",
   version: "v1",
+  name: "Archive a post by Id",
   request: {
     params: z.object({
       id: z.string(),

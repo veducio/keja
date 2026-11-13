@@ -49,9 +49,6 @@ export type VaultSettings = {
   token: string;
   namespace: string | null;
   mount: string;
-  transit_key: string | null;
-  transit_mount: string;
-  grant_max_exp: number;
 };
 
 export type VaultConfigInput = {
@@ -60,14 +57,44 @@ export type VaultConfigInput = {
   token?: string;
   namespace?: string;
   mount?: string;
-  transit_key?: string;
-  transit_mount?: string;
-  grant_max_exp?: number;
 };
 
 export type VaultConfig =
   | { enabled: false }
   | ({ enabled: true } & VaultSettings);
+
+export type GrantsConfigInput = {
+  enabled: boolean;
+  mode?: "transit" | "secret";
+  max_exp?: number;
+  transit_key?: string;
+  transit_mount?: string;
+  secret?: string;
+  secret_vault?: string;
+  secret_field?: string;
+};
+
+export type GrantsConfig =
+  | { enabled: false }
+  | {
+      enabled: true;
+      mode: "transit";
+      max_exp: number;
+      transit_key: string;
+      transit_mount: string;
+    }
+  | {
+      enabled: true;
+      mode: "secret";
+      max_exp: number;
+      secret: string | null;
+      secret_vault: string | null;
+      secret_field: string;
+    };
+
+export type BatchConfigInput = boolean | { enabled: boolean };
+
+export type BatchConfig = { enabled: boolean };
 
 export type KejaConfigInput = {
   name?: string;
@@ -77,6 +104,8 @@ export type KejaConfigInput = {
   argus?: ArgusConfigInput;
   db?: DatabaseConfigInput;
   vault?: VaultConfigInput;
+  grants?: GrantsConfigInput;
+  batch?: BatchConfigInput;
 };
 
 export type KejaConfig = {
@@ -87,6 +116,8 @@ export type KejaConfig = {
   argus: ArgusConfig;
   database: DatabaseConfig;
   vault: VaultConfig;
+  grants: GrantsConfig;
+  batch: BatchConfig;
 };
 
 export function defineConfig(input: KejaConfigInput = {}) {
@@ -110,6 +141,8 @@ export function defineConfig(input: KejaConfigInput = {}) {
     argus: configArgus(input.argus),
     database: configDatabase(input.db),
     vault: configVault(input.vault),
+    grants: configGrants(input.grants),
+    batch: configBatch(input.batch),
   };
   return Object.assign(config, { [configBrand]: true as const });
 }
@@ -126,7 +159,9 @@ export function isConfig(value: unknown): value is KejaConfig {
     hasName(value) &&
     hasArgus(value) &&
     hasDatabase(value) &&
-    hasVault(value)
+    hasVault(value) &&
+    hasGrants(value) &&
+    hasBatch(value)
   );
 }
 
@@ -142,6 +177,8 @@ export type LoadedConfig = ProjectPaths & {
   argus: ArgusConfig;
   database: DatabaseConfig;
   vault: VaultConfig;
+  grants: GrantsConfig;
+  batch: BatchConfig;
 };
 
 export function resolveProjectPaths(root: string, config: KejaConfig) {
@@ -198,6 +235,8 @@ function loadedConfig(
     argus: config.argus,
     database: resolvedDatabase(root, config.database),
     vault: config.vault,
+    grants: config.grants,
+    batch: config.batch,
   };
 }
 
@@ -295,16 +334,88 @@ function configVault(value: VaultConfigInput | undefined): VaultConfig {
     ),
     namespace: optionalText(namespace, "vault.namespace", "namespace"),
     mount: vaultMount(value.mount ?? configEnv("VAULT_KV_MOUNT") ?? "secret"),
-    transit_key:
-      value.transit_key === undefined
-        ? null
-        : vaultName(value.transit_key, "vault.transit_key"),
-    transit_mount: vaultName(
-      value.transit_mount ?? "transit",
-      "vault.transit_mount",
-    ),
-    grant_max_exp: grantMaxExp(value.grant_max_exp),
   };
+}
+
+function configGrants(value: GrantsConfigInput | undefined): GrantsConfig {
+  if (value === undefined) {
+    return { enabled: false };
+  }
+  if (!isEnabledObject(value)) {
+    throw projectError(
+      "invalidConfigFile",
+      "keja.config.ts grants must be an object with enabled",
+    );
+  }
+  if (!value.enabled) {
+    return { enabled: false };
+  }
+  const mode = value.mode ?? "transit";
+  if (mode !== "transit" && mode !== "secret") {
+    throw projectError(
+      "invalidConfigFile",
+      "keja.config.ts grants.mode must be transit or secret",
+    );
+  }
+  const max_exp = grantMaxExp(value.max_exp);
+  if (mode === "transit") {
+    return {
+      enabled: true,
+      mode: "transit",
+      max_exp,
+      transit_key: vaultName(
+        requiredText(value.transit_key, "grants.transit_key", "key name"),
+        "grants.transit_key",
+      ),
+      transit_mount: vaultName(
+        value.transit_mount ?? "transit",
+        "grants.transit_mount",
+      ),
+    };
+  }
+  const secret =
+    value.secret === undefined
+      ? (configEnv("GRANT_SECRET") ?? null)
+      : requiredText(value.secret, "grants.secret", "secret");
+  const secret_vault =
+    value.secret_vault === undefined
+      ? null
+      : secretVaultPath(
+          requiredText(value.secret_vault, "grants.secret_vault", "path"),
+        );
+  if (secret === null && secret_vault === null) {
+    throw projectError(
+      "invalidConfigFile",
+      "keja.config.ts grants.secret, GRANT_SECRET, or grants.secret_vault is required",
+    );
+  }
+  return {
+    enabled: true,
+    mode: "secret",
+    max_exp,
+    secret,
+    secret_vault,
+    secret_field: vaultName(
+      value.secret_field ?? "secret",
+      "grants.secret_field",
+    ),
+  };
+}
+
+function configBatch(value: BatchConfigInput | undefined): BatchConfig {
+  if (value === undefined) {
+    return { enabled: true };
+  }
+  if (typeof value === "boolean") {
+    return { enabled: value };
+  }
+  if (!isEnabledObject(value)) {
+    throw projectError(
+      "invalidConfigFile",
+      "keja.config.ts batch must be a boolean or an object with enabled",
+    );
+  }
+  return { enabled: value.enabled };
 }
 
 function isEnabledObject(value: unknown): value is { enabled: boolean } {
@@ -354,6 +465,21 @@ function vaultName(value: string, field: string) {
   return name;
 }
 
+function secretVaultPath(value: string) {
+  const cleaned = value.trim().replace(/^\/+|\/+$/g, "");
+  const parts = cleaned.split("/");
+  if (
+    !cleaned ||
+    parts.some((part) => part.length === 0 || part === "." || part === "..")
+  ) {
+    throw projectError(
+      "invalidConfigFile",
+      "keja.config.ts grants.secret_vault must be a Vault secret path",
+    );
+  }
+  return cleaned;
+}
+
 function grantMaxExp(value: number | undefined) {
   if (value === undefined) {
     return 900;
@@ -366,7 +492,7 @@ function grantMaxExp(value: number | undefined) {
   ) {
     throw projectError(
       "invalidConfigFile",
-      "keja.config.ts vault.grant_max_exp must be a whole number of seconds from 1 to 86400",
+      "keja.config.ts grants.max_exp must be a whole number of seconds from 1 to 86400",
     );
   }
   return value;
@@ -432,6 +558,27 @@ function hasVault(value: object) {
         typeof vault.address === "string" &&
         typeof vault.token === "string" &&
         typeof vault.mount === "string"))
+  );
+}
+
+function hasGrants(value: object) {
+  const grants = (value as KejaConfig).grants;
+  return (
+    typeof grants === "object" &&
+    grants !== null &&
+    (grants.enabled === false ||
+      (grants.enabled === true &&
+        (grants.mode === "transit" || grants.mode === "secret") &&
+        typeof grants.max_exp === "number"))
+  );
+}
+
+function hasBatch(value: object) {
+  const batch = (value as KejaConfig).batch;
+  return (
+    typeof batch === "object" &&
+    batch !== null &&
+    typeof batch.enabled === "boolean"
   );
 }
 

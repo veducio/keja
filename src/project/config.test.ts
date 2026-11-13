@@ -100,11 +100,45 @@ describe("defineConfig", () => {
       token: "s.token",
       namespace: "apps",
       mount: "kv",
-      transit_key: null,
-      transit_mount: "transit",
-      grant_max_exp: 900,
     });
     expect(defineConfig().vault).toEqual({ enabled: false });
+  });
+
+  it("reads grants and batch settings from config", () => {
+    expect(
+      defineConfig({
+        grants: {
+          enabled: true,
+          mode: "transit",
+          transit_key: "keja-grants",
+        },
+      }).grants,
+    ).toEqual({
+      enabled: true,
+      mode: "transit",
+      max_exp: 900,
+      transit_key: "keja-grants",
+      transit_mount: "transit",
+    });
+    expect(
+      defineConfig({
+        grants: {
+          enabled: true,
+          mode: "secret",
+          secret: "test-secret",
+        },
+      }).grants,
+    ).toEqual({
+      enabled: true,
+      mode: "secret",
+      max_exp: 900,
+      secret: "test-secret",
+      secret_vault: null,
+      secret_field: "secret",
+    });
+    expect(defineConfig({ batch: false }).batch).toEqual({ enabled: false });
+    expect(defineConfig().grants).toEqual({ enabled: false });
+    expect(defineConfig().batch).toEqual({ enabled: true });
   });
 });
 
@@ -117,6 +151,8 @@ describe("loadConfig", () => {
       argus: { enabled: false },
       database: { enabled: false },
       vault: { enabled: false },
+      grants: { enabled: false },
+      batch: { enabled: true },
       versioning: path.resolve(root, "keja.versioning.ts"),
       public: path.resolve(root, "src/public"),
       service: path.resolve(root, "src/service"),

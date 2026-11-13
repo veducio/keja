@@ -12,6 +12,7 @@ import {
   type VersionDefinition,
 } from "../versioning/define.ts";
 import { selectRoute } from "../versioning/select.ts";
+import { runBatch } from "./batch.ts";
 import { createOpenApiDocument } from "./openapi.ts";
 
 export function createHttpApp(options: {
@@ -22,12 +23,17 @@ export function createHttpApp(options: {
   server?: string | null;
   identity?: ServiceIdentity;
   postOnly?: boolean;
+  batch?: boolean;
 }) {
+  const batch = options.batch !== false;
   validateRoutes(options.versions, options.routes, options.postOnly === true);
   const document = createOpenApiDocument(
     options.title,
     options.routes,
     options.server,
+    options.versions,
+    options.postOnly === true,
+    batch,
   );
   const app = new Hono();
   app.get("/_health", (c) => c.json({ status: "ok" }));
@@ -50,6 +56,7 @@ export function createHttpApp(options: {
       options.routes,
       options.middleware ?? [],
       options.postOnly === true,
+      batch,
     ),
   );
   return app;
@@ -61,6 +68,7 @@ async function dispatch(
   routes: readonly RouteDefinition[],
   middleware: readonly MiddlewareDefinition<object>[],
   postOnly: boolean,
+  batch: boolean,
 ) {
   if (postOnly && request.method !== "POST") {
     return Response.json(frameworkError("methodNotAllowed"), { status: 405 });
@@ -76,6 +84,20 @@ async function dispatch(
   const requested = resolveVersionToken(token, versions);
   if (!requested) {
     return Response.json(frameworkError("unknownVersion"), { status: 404 });
+  }
+  if (request.method === "POST" && remainder === "/batch") {
+    if (!batch) {
+      return Response.json(frameworkError("notFound"), { status: 404 });
+    }
+    return runBatch(
+      request,
+      versions,
+      routes,
+      middleware,
+      requested,
+      token,
+      postOnly,
+    );
   }
   const selected = selectRoute(
     routes,
@@ -175,6 +197,9 @@ function validateRoutes(
   const known = new Set(versions.map((version) => version.id));
   const seen = new Set<string>();
   for (const route of routes) {
+    if (route.method === "post" && route.path === "/batch") {
+      throw projectError("invalidRoute", "POST /batch is reserved");
+    }
     if (postOnly && route.method !== "post") {
       throw projectError(
         "serviceMethod",

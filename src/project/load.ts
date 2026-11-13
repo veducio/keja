@@ -11,7 +11,9 @@ import {
 import { isVersions, type VersionDefinition } from "../versioning/define.ts";
 import {
   type ArgusConfig,
+  type BatchConfig,
   type DatabaseConfig,
+  type GrantsConfig,
   loadConfig,
   type ProjectPaths,
   type VaultConfig,
@@ -23,6 +25,8 @@ export type LoadedProject = {
   name: string | null;
   argus: ArgusConfig;
   vault: VaultConfig;
+  grants: GrantsConfig;
+  batch: BatchConfig;
   database: DatabaseConfig;
   versions: VersionDefinition[];
   publicRoutes: RouteDefinition[];
@@ -58,6 +62,8 @@ export async function loadProject(
     name: loaded.name,
     argus: loaded.argus,
     vault: loaded.vault,
+    grants: loaded.grants,
+    batch: loaded.batch,
     database: loaded.database,
     versions: versioning.default.versions,
     publicRoutes: await loadRoutes(publicDirectory, generation),

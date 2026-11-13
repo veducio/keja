@@ -4,7 +4,8 @@ import { startArgusHeartbeat } from "../argus/heartbeat.ts";
 import { argusRegistrations, publishArgus } from "../argus/register.ts";
 import { connectDatabase } from "../db/postgres.ts";
 import { readOpenApiServers, readRequiredEnv } from "../env/required-env.ts";
-import { projectError } from "../errors/framework-errors.ts";
+import { DependencyNotMet, projectError } from "../errors/framework-errors.ts";
+import { connectGrants, setGrants } from "../grant/settings.ts";
 import { createHttpApp } from "../http/create-app.ts";
 import { type LoadedProject, loadProject } from "../project/load.ts";
 import { formatSelfTest, runSelfTest } from "../self-test/run.ts";
@@ -74,6 +75,21 @@ export async function listen(
     await connectVault(project.vault);
   } else {
     setVault(null);
+  }
+  if (project.grants.enabled) {
+    if (project.grants.mode === "transit" && !project.vault.enabled) {
+      throw new DependencyNotMet("grant transit", "vault");
+    }
+    if (
+      project.grants.mode === "secret" &&
+      project.grants.secret_vault &&
+      !project.vault.enabled
+    ) {
+      throw new DependencyNotMet("grant secret_vault", "vault");
+    }
+    await connectGrants(project.grants);
+  } else {
+    setGrants(null);
   }
   const mounted = mountProject(root, project, env, openApiServers);
   const identity = mounted.identity;
@@ -157,6 +173,7 @@ function mountProject(
       middleware: project.publicMiddleware,
       server: openApiServers.openapiServer,
       identity,
+      batch: project.batch.enabled,
     }),
     serviceApp: createHttpApp({
       title: "Service",
@@ -166,6 +183,7 @@ function mountProject(
       server: openApiServers.openapiServiceServer,
       identity,
       postOnly: true,
+      batch: project.batch.enabled,
     }),
   };
 }
