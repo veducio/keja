@@ -1,4 +1,5 @@
 ---
+
 title: How to version an API
 description: Publish v2 while keeping v1 callers on older handlers.
 ---
@@ -42,8 +43,7 @@ export default defineRoute({
       json: z.object({ message: z.string(), api: z.literal("v2") }),
     }),
   },
-  handler: ({ respond }) =>
-    respond.Hello({ message: "hello", api: "v2" }),
+  handler: ({ respond }) => respond.Hello({ message: "hello", api: "v2" }),
 });
 ```
 

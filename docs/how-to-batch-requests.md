@@ -1,4 +1,5 @@
 ---
+
 title: How to batch requests
 description: Call several routes in one POST, or turn batching off.
 ---

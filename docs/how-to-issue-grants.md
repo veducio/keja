@@ -1,4 +1,5 @@
 ---
+
 title: How to issue grants
 description: Enable grant JWTs with Transit or a shared secret, then verify them.
 ---

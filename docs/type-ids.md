@@ -1,4 +1,5 @@
 ---
+
 title: TypeIDs
 description: TypeID format and helpers for OwnedObjects ids.
 ---
@@ -36,13 +37,13 @@ const objectType = objectTypeFromRoute(2, "/core/users");
 const row = createObjectRow(objectType, { tenant: "tenant_1" });
 ```
 
-| Function | Role |
-| -------- | ---- |
-| `createTypeId` | Build a TypeID |
-| `parseTypeId` | `{ prefix, suffix }` or `null` |
-| `isTypeId(value, prefix?)` | Validate |
-| `objectTypeFromRoute(version, path)` | `vN.seg...`; version ≥ 1; path segments are prefixes; no `:params` |
-| `createObjectRow` | OwnedObjects envelope (`_id`, `_object`, `_tenant`, `_archived: false`, timestamps); optional `idPrefix` |
-| `assertObjectType` / `isObjectType` | `vN.segment`… |
-| `idPrefixFromObjectType` | Last segment |
-| `assertOwnedObject` | Full stored row including domain keys |
+| Function                             | Role                                                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `createTypeId`                       | Build a TypeID                                                                                           |
+| `parseTypeId`                        | `{ prefix, suffix }` or `null`                                                                           |
+| `isTypeId(value, prefix?)`           | Validate                                                                                                 |
+| `objectTypeFromRoute(version, path)` | `vN.seg...`; version ≥ 1; path segments are prefixes; no `:params`                                       |
+| `createObjectRow`                    | OwnedObjects envelope (`_id`, `_object`, `_tenant`, `_archived: false`, timestamps); optional `idPrefix` |
+| `assertObjectType` / `isObjectType`  | `vN.segment`…                                                                                            |
+| `idPrefixFromObjectType`             | Last segment                                                                                             |
+| `assertOwnedObject`                  | Full stored row including domain keys                                                                    |

@@ -1,4 +1,5 @@
 ---
+
 title: OwnedObjects model
 description: Why every application table shares the same reserved columns.
 ---

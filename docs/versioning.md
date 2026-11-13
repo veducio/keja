@@ -1,4 +1,5 @@
 ---
+
 title: Versioning
 description: Version catalog, request tokens, and handler selection.
 ---
@@ -12,23 +13,23 @@ description: Version catalog, request tokens, and handler selection.
 | key          | yes      | `v` + whole number (`v0`, `v1`, `v10`; not `v01`)              |
 | `releasedAt` | yes      | `YYYY-MM-DD`, `DD-MM-YYYY`, unix seconds, or unix milliseconds |
 
-| Error | When |
-| ----- | ---- |
-| `2003` | File missing |
+| Error  | When              |
+| ------ | ----------------- |
+| `2003` | File missing      |
 | `2004` | No catalog export |
-| `2008` | Bad version id |
-| `2009` | Bad release date |
+| `2008` | Bad version id    |
+| `2009` | Bad release date  |
 
 ## Request tokens
 
 First path segment:
 
-| Token | Resolves to |
-| ----- | ----------- |
-| `v1` | That catalog version when defined |
+| Token                       | Resolves to                                       |
+| --------------------------- | ------------------------------------------------- |
+| `v1`                        | That catalog version when defined                 |
 | `2024-06-01` / `01-06-2024` | Newest version released on or before that UTC day |
-| `latest` | Newest version |
-| `current` | Newest version |
+| `latest`                    | Newest version                                    |
+| `current`                   | Newest version                                    |
 
 Newest means later `releasedAt`. Equal release instants: higher version number wins. Unknown token → HTTP `404`, framework `1002`.
 

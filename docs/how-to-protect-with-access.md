@@ -1,4 +1,5 @@
 ---
+
 title: How to protect with Access
 description: Require a Cloudflare Access JWT on one route.
 ---
@@ -47,8 +48,7 @@ export default defineRoute({
       json: z.object({ email: z.string() }),
     }),
   },
-  handler: ({ access, respond }) =>
-    respond.Me({ email: access.email ?? "" }),
+  handler: ({ access, respond }) => respond.Me({ email: access.email ?? "" }),
 });
 ```
 

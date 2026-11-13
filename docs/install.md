@@ -1,4 +1,5 @@
 ---
+
 title: Install
 description: Install Keja and create a project with keja init.
 ---
@@ -55,11 +56,11 @@ Init copies the starter, writes `package.json`, `keja.config.ts`, and `tsconfig.
 
 Init copies `.env.example` to `.env` when `.env` is missing. Set these before the first start:
 
-| Variable            | Example       |
-| ------------------- | ------------- |
-| `HOST`              | `127.0.0.1`   |
-| `HTTP_PORT`         | `3000`        |
-| `HTTP_SERVICE_PORT` | `3001`        |
+| Variable            | Example     |
+| ------------------- | ----------- |
+| `HOST`              | `127.0.0.1` |
+| `HTTP_PORT`         | `3000`      |
+| `HTTP_SERVICE_PORT` | `3001`      |
 
 When Postgres is enabled in config, also set `DATABASE_URL` to a `postgres://` or `postgresql://` URL. The full env list is in [Project](/project#environment).
 

@@ -1,4 +1,5 @@
 ---
+
 title: How to read Vault secrets
 description: Enable Vault and read one KV v2 secret in a handler.
 ---

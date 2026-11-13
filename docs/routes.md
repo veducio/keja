@@ -1,4 +1,5 @@
 ---
+
 title: Routes
 description: defineRoute fields, file loading, and batch API.
 ---
@@ -26,16 +27,16 @@ export default defineRoute({
 });
 ```
 
-| Field        | Required | Description                                                    |
-| ------------ | -------- | -------------------------------------------------------------- |
-| `method`     | yes      | `get`, `post`, `put`, `patch`, or `delete`                     |
-| `path`       | yes      | Starts with `/`; may include `:name` parameters                |
-| `name`       | no       | Non-empty string; Scalar operation summary                     |
-| `version`    | yes      | Catalog id such as `v1`                                        |
-| `request`    | no       | `params`, `query`, and/or `body` Zod schemas                   |
-| `middleware` | no       | Route middleware list                                          |
-| `responses`  | yes      | Named `response({ code, json, const? })` map                   |
-| `handler`    | yes      | Receives parsed input, middleware fields, and `respond`        |
+| Field        | Required | Description                                             |
+| ------------ | -------- | ------------------------------------------------------- |
+| `method`     | yes      | `get`, `post`, `put`, `patch`, or `delete`              |
+| `path`       | yes      | Starts with `/`; may include `:name` parameters         |
+| `name`       | no       | Non-empty string; Scalar operation summary              |
+| `version`    | yes      | Catalog id such as `v1`                                 |
+| `request`    | no       | `params`, `query`, and/or `body` Zod schemas            |
+| `middleware` | no       | Route middleware list                                   |
+| `responses`  | yes      | Named `response({ code, json, const? })` map            |
+| `handler`    | yes      | Receives parsed input, middleware fields, and `respond` |
 
 Invalid method, path, name, or schema throws project error `2030` at definition time. Failed request parse returns HTTP `400` (framework `1003`).
 
@@ -45,10 +46,10 @@ Scalar groups operations by `version` tag.
 
 Keja walks the public and service folders recursively.
 
-| Included                         | Excluded                          |
-| -------------------------------- | --------------------------------- |
-| `*.ts` route modules             | `*.test.ts`                       |
-|                                  | `_middleware.ts` (not a route)    |
+| Included             | Excluded                       |
+| -------------------- | ------------------------------ |
+| `*.ts` route modules | `*.test.ts`                    |
+|                      | `_middleware.ts` (not a route) |
 
 Only `_middleware.ts` directly inside the public or service root is loaded as server middleware. Nested `_middleware.ts` files are ignored.
 
@@ -92,13 +93,13 @@ Request body:
 }
 ```
 
-| Rule | Detail |
-| ---- | ------ |
-| Max calls | 25 |
-| Response | HTTP `207`, `results` in request order |
-| Per result | Status + JSON as a standalone call |
-| Isolation | One failure does not stop others |
+| Rule       | Detail                                                                     |
+| ---------- | -------------------------------------------------------------------------- |
+| Max calls  | 25                                                                         |
+| Response   | HTTP `207`, `results` in request order                                     |
+| Per result | Status + JSON as a standalone call                                         |
+| Isolation  | One failure does not stop others                                           |
 | Validation | Missing/empty/`requests` too long, or missing `method`/`path` → HTTP `400` |
-| Reserved | Project routes cannot use `POST /batch` |
-| Service | Calls inside batch must be `post` |
-| OpenAPI | One `POST /{version}/batch` under tag `Batch` |
+| Reserved   | Project routes cannot use `POST /batch`                                    |
+| Service    | Calls inside batch must be `post`                                          |
+| OpenAPI    | One `POST /{version}/batch` under tag `Batch`                              |

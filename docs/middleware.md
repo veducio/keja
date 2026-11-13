@@ -1,4 +1,5 @@
 ---
+
 title: Middleware
 description: Server middleware and route middleware.
 ---
@@ -32,9 +33,9 @@ Reserved `next` field names: `params`, `query`, `body`, `respond`. Passing one t
 
 ## Server middleware
 
-| Location | Applies to |
-| -------- | ---------- |
-| `<public_path>/_middleware.ts` | Public routes |
+| Location                        | Applies to     |
+| ------------------------------- | -------------- |
+| `<public_path>/_middleware.ts`  | Public routes  |
 | `<service_path>/_middleware.ts` | Service routes |
 
 Nested `_middleware.ts` files are ignored. Default-export `defineMiddleware(...)` or an array of them. Invalid file → project error `2007`.

@@ -1,4 +1,5 @@
 ---
+
 title: Commands
 description: keja CLI commands and behavior.
 ---
@@ -21,12 +22,12 @@ keja build
 
 Development server. Watches the project and reloads routes, local imports, `/_openapi.json`, and `/docs` without closing sockets.
 
-| Output                 | Meaning                                      |
-| ---------------------- | -------------------------------------------- |
-| `reloading...`         | A watched change is being applied            |
-| `no issues found`      | Project loaded                               |
-| red `ERROR` badge      | Load failed; last good project keeps serving |
-| `waiting for changes`  | First boot failed; waiting for a fix         |
+| Output                | Meaning                                      |
+| --------------------- | -------------------------------------------- |
+| `reloading...`        | A watched change is being applied            |
+| `no issues found`     | Project loaded                               |
+| red `ERROR` badge     | Load failed; last good project keeps serving |
+| `waiting for changes` | First boot failed; waiting for a fix         |
 
 Database pool, Vault, and Argus stay as they were at boot. Restart after changing those settings, `.env`, or Keja itself.
 

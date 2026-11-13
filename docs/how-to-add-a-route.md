@@ -1,4 +1,5 @@
 ---
+
 title: How to add a route
 description: Add a public or service route and see it in Scalar.
 ---

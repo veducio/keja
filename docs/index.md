@@ -1,4 +1,5 @@
 ---
+
 title: Keja
 description: A Bun server for container microservices.
 ---
@@ -14,11 +15,11 @@ Install the package, create a project, and follow the first-service lesson. Afte
 
 ## How documentation is organized
 
-| Kind | Use it when you want to… |
-| ---- | ------------------------ |
+| Kind                                 | Use it when you want to…                                         |
+| ------------------------------------ | ---------------------------------------------------------------- |
 | [How-to guides](/how-to-add-a-route) | Solve one problem (add a route, turn on Postgres, issue a grant) |
-| [Reference](/project) | Look up config, CLI, APIs, and error codes |
-| [Explanation](/why-keja) | Understand why Keja is shaped the way it is |
+| [Reference](/project)                | Look up config, CLI, APIs, and error codes                       |
+| [Explanation](/why-keja)             | Understand why Keja is shaped the way it is                      |
 
 ## What you get
 

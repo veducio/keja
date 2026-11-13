@@ -1,4 +1,5 @@
 ---
+
 title: Responses
 description: response() helpers and respond.Name in handlers.
 ---
@@ -17,11 +18,11 @@ responses: {
 handler: ({ body, respond }) => respond.Created({ id: "1", name: body.name }),
 ```
 
-| Field  | Required | Description                                      |
-| ------ | -------- | ------------------------------------------------ |
-| `code` | yes      | Integer status `100`–`599` (`2010` if outside)   |
-| `json` | yes      | Zod schema for the JSON body                     |
-| `const`| no       | Fields merged onto the body; win over handler    |
+| Field   | Required | Description                                    |
+| ------- | -------- | ---------------------------------------------- |
+| `code`  | yes      | Integer status `100`–`599` (`2010` if outside) |
+| `json`  | yes      | Zod schema for the JSON body                   |
+| `const` | no       | Fields merged onto the body; win over handler  |
 
 If the handler result fails the schema, Keja returns HTTP `500` and framework error `1004` (includes Zod issues).
 

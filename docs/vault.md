@@ -1,4 +1,5 @@
 ---
+
 title: Vault
 description: Vault KV v2 client reference.
 ---
@@ -7,13 +8,13 @@ Off until `vault.enabled` is `true`. Config: [Project](/project#vault).
 
 ## Config and env
 
-| Field | Default / env | Description |
-| ----- | ------------- | ----------- |
-| `enabled` | — | Required |
-| `address` | `VAULT_ADDR` | Absolute URL |
-| `token` | `VAULT_TOKEN` | Token |
-| `namespace` | `VAULT_NAMESPACE` | Optional |
-| `mount` | `VAULT_KV_MOUNT` or `secret` | KV v2 mount |
+| Field       | Default / env                | Description  |
+| ----------- | ---------------------------- | ------------ |
+| `enabled`   | —                            | Required     |
+| `address`   | `VAULT_ADDR`                 | Absolute URL |
+| `token`     | `VAULT_TOKEN`                | Token        |
+| `namespace` | `VAULT_NAMESPACE`            | Optional     |
+| `mount`     | `VAULT_KV_MOUNT` or `secret` | KV v2 mount  |
 
 Startup: `GET /v1/auth/token/lookup-self`. Failure → `2024`.
 

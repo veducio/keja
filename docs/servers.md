@@ -1,4 +1,5 @@
 ---
+
 title: Servers
 description: Reserved routes, identity, and OpenAPI / Scalar.
 ---
@@ -20,17 +21,17 @@ One process listens on `HTTP_PORT` (public) and `HTTP_SERVICE_PORT` (service). B
 
 ## Bind addresses
 
-| `HOST` | Advertised hosts |
-| ------ | ---------------- |
-| Specific address | That address only |
+| `HOST`            | Advertised hosts                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| Specific address  | That address only                                                                                         |
 | `0.0.0.0` or `::` | Non-internal addresses; skips link-local `169.254.0.0/16` and `fe80::/10`; prefers IPv4; else `127.0.0.1` |
 
 ## OpenAPI
 
-| Behavior | Detail |
-| -------- | ------ |
-| Path form | `/{version}{path}` |
-| Tags | Route `version`; batch under `Batch` |
-| Summary | Optional route `name` |
-| Batch | One `POST /{version}/batch` when batch enabled; service enum is `post` only |
-| Servers | `OPENAPI_SERVER` / `OPENAPI_SERVICE_SERVER` → `servers[0].url` |
+| Behavior  | Detail                                                                      |
+| --------- | --------------------------------------------------------------------------- |
+| Path form | `/{version}{path}`                                                          |
+| Tags      | Route `version`; batch under `Batch`                                        |
+| Summary   | Optional route `name`                                                       |
+| Batch     | One `POST /{version}/batch` when batch enabled; service enum is `post` only |
+| Servers   | `OPENAPI_SERVER` / `OPENAPI_SERVICE_SERVER` → `servers[0].url`              |
