@@ -6,7 +6,12 @@ description: Optional Postgres migrations, repositories, and the DBCall client.
 
 Postgres is optional. When it is on, three commands split the work. `keja migrate` applies the SQL files. `keja generate` reads those files and writes a repository for each table. `keja seed` inserts starter rows. `keja dev` and `keja start` open the pool and leave the SQL files where they are.
 
-Postgres is off until config turns it on. An omitted `db` and `db: { enabled: false }` leave the database disabled, so a project can boot with no `DATABASE_URL`. `db: { enabled: true }` uses the `migrations` folder. `migrations` sets another path, resolved from the project root. An empty migrations path fails config loading.
+Postgres is off until config turns it on. An omitted `db` and `db: { enabled: false }` leave the database disabled, so a project can boot with no `DATABASE_URL`. `db: { enabled: true }` uses the `migrations` folder. `migrations` sets another path, resolved from the project root. An empty migrations path fails config loading. The full field list is on [Project](/project#db).
+
+| Field        | Default      | Role                                                      |
+| ------------ | ------------ | --------------------------------------------------------- |
+| `enabled`    | —            | Required. `false` leaves Postgres off                     |
+| `migrations` | `migrations` | Folder of `0001_name.sql` files when `enabled` is `true`  |
 
 ```ts
 export default defineConfig({
@@ -94,7 +99,7 @@ export default defineRoute({
 });
 ```
 
-`list: true` accepts an equality filter for every domain column except `jsonb`. `list: { filters, limit }` names the filters the query may pass and the page size used when `limit` is omitted. `limit` still stops at 100. The handler can pass `where` for more equality checks beside the tenant. `archived=true` returns archived rows only. `list.includeArchived` and `get.includeArchived` return live rows and archived rows together. `q` matches the text columns that are allowed filters. `sort` is one non-null domain column or `_id`, with a leading `-` for descending. The default sort is `_id` ascending. The cursor is opaque. `schema` is one row without the owned columns. `meta` is one row with `_id`, `_object`, `_tenant`, `_archived`, `_createdAt`, and `_updatedAt`. `insert` stores a full owned row. `upsert` stores that row, or replaces the domain columns, `_archived`, and `_updatedAt` when `_id` already belongs to the same tenant. A conflicting `_id` in another tenant is left in place and `upsert` returns null. `update` changes the named domain columns and sets `_updatedAt`. `archive` sets `_archived` and `_updatedAt`. `hardDelete` removes the row. Each of those returns the row, or null when no row matches the id and tenant. `get` returns the row or null. Get exposes `params` and `query` separately so they map onto `defineRoute`.
+`list: true` accepts an equality filter for every domain column except `jsonb`. `list: { filters, limit }` names the filters the query may pass and the page size used when `limit` is omitted. `limit` still stops at 100. The handler can pass `where` for more equality checks beside the tenant. `archived=true` returns archived rows only. Call `list.includeArchived(...)` or `get.includeArchived(...)` to return live rows and archived rows together. `q` matches the text columns that are allowed filters. `sort` is one non-null domain column or `_id`, with a leading `-` for descending. The default sort is `_id` ascending. The cursor is opaque. `schema` is one row without the owned columns. `meta` is one row with `_id`, `_object`, `_tenant`, `_archived`, `_createdAt`, and `_updatedAt`. `insert` stores a full owned row. `upsert` stores that row, or replaces the domain columns, `_archived`, and `_updatedAt` when `_id` already belongs to the same tenant. A conflicting `_id` in another tenant is left in place and `upsert` returns null. `update` changes the named domain columns and sets `_updatedAt`. `archive` sets `_archived` and `_updatedAt`. `hardDelete` removes the row. Each of those returns the row, or null when no row matches the id and tenant. `get` returns the row or null. Get exposes `params` and `query` separately so they map onto `defineRoute`.
 
 A migration Keja cannot read is project error `2028`. A repository file that names an unknown table or a flag other than `list` and `get` is `2029`.
 

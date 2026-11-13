@@ -27,7 +27,18 @@ export default defineRoute({
 });
 ```
 
-`method` is `get`, `post`, `put`, `patch`, or `delete`. `path` starts with `/` and can include `:name` parameters at any depth. `name` is optional. When set, Scalar shows it as the operation summary. Routes are grouped in Scalar by their `version` tag. A wrong method, path, or Zod schema fails when the route is defined, as project error `2030`. `version` must be a version id from `keja.versioning.ts`, such as `v1`. `request` may declare `params`, `query`, and `body` as Zod schemas. A failed parse returns HTTP `400` and framework error `1003`.
+| Field        | Required | Role                                                                 |
+| ------------ | -------- | -------------------------------------------------------------------- |
+| `method`     | yes      | `get`, `post`, `put`, `patch`, or `delete`                           |
+| `path`       | yes      | Starts with `/`. May include `:name` parameters at any depth         |
+| `name`       | no       | Scalar operation summary when set                                    |
+| `version`    | yes      | Version id from `keja.versioning.ts`, such as `v1`                   |
+| `request`    | no       | `params`, `query`, and `body` as Zod schemas                         |
+| `middleware` | no       | Route middleware list. See [Middleware](/middleware)                 |
+| `responses`  | yes      | Named `response({ code, json })` entries                             |
+| `handler`    | yes      | Receives parsed input, middleware fields, and `respond`              |
+
+Routes are grouped in Scalar by their `version` tag. A wrong method, path, name, or Zod schema fails when the route is defined, as project error `2030`. A failed request parse returns HTTP `400` and framework error `1003`.
 
 ## Files
 
@@ -75,4 +86,6 @@ POST /current/jobs
 }
 ```
 
-The response is HTTP `207` Multi-Response and a `results` array in the same order. Each result has the status and JSON body that call would have returned on its own, including `400`, `404`, and `405`. One failed call does not stop the others. The batch itself is `400` when `requests` is missing, empty, or longer than 25, or when a call omits `method` or `path`. `POST /batch` is reserved, so a project route cannot use that method and path. The service server still accepts only POST calls inside the batch. Scalar lists one `POST /{version}/batch` entry under the Batch tag. Set `batch: false` in `keja.config.ts` to turn batch off.
+The response is HTTP `207` Multi-Response and a `results` array in the same order. Each result has the status and JSON body that call would have returned on its own, including `400`, `404`, and `405`. One failed call does not stop the others. The batch itself is `400` when `requests` is missing, empty, or longer than 25, or when a call omits `method` or `path`. `POST /batch` is reserved, so a project route cannot use that method and path. The service server still accepts only POST calls inside the batch. Scalar lists one `POST /{version}/batch` entry under the Batch tag.
+
+Batch is on by default. Turn it off with `batch: false` or `batch: { enabled: false }` in `keja.config.ts`. See [Project](/project#batch).

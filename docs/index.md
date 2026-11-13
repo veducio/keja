@@ -22,7 +22,7 @@ The concept pages follow the order a service meets them.
 
 | Page                           | What it explains                                   |
 | ------------------------------ | -------------------------------------------------- |
-| [Project](/project)            | The directory `keja dev` loads                     |
+| [Project](/project)            | Layout, every `defineConfig` field, and env vars   |
 | [Versioning](/versioning)      | Why the first path segment chooses a handler       |
 | [Routes](/routes)              | One `defineRoute`, optional names, and batch       |
 | [Responses](/responses)        | `respond.Name`, the status, and the body schema    |

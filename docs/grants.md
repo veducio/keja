@@ -4,9 +4,22 @@ title: Grants
 description: Short-lived JWTs for one subject and one action.
 ---
 
-A grant is a JWT for one subject and one action. Configure it with top-level `grants` in `keja.config.ts`. Grants are off until `grants.enabled` is `true`.
+A grant is a JWT for one subject and one action. Configure it with top-level `grants` in `keja.config.ts`. Grants are off until `grants.enabled` is `true`. The full field list is on [Project](/project#grants).
 
 `exp` is a whole number of seconds from now. It is required, and it cannot be longer than `max_exp`. The default maximum is 900 seconds. `context` is a plain object the issuing service fills. The receiving service reads it after `verifyGrant` accepts the token.
+
+## Config
+
+| Field           | Default / env              | When required                                              |
+| --------------- | -------------------------- | ---------------------------------------------------------- |
+| `enabled`       | —                          | Always present on the block                                |
+| `mode`          | `transit`                  | —                                                          |
+| `max_exp`       | `900`                      | —                                                          |
+| `transit_key`   | —                          | `mode: "transit"`                                          |
+| `transit_mount` | `transit`                  | —                                                          |
+| `secret`        | `GRANT_SECRET`             | `mode: "secret"` unless `secret_vault` is set              |
+| `secret_vault`  | omit                       | `mode: "secret"` as an alternative to `secret` / env       |
+| `secret_field`  | `secret`                   | When reading `secret_vault`                                |
 
 ## Modes
 
@@ -24,7 +37,9 @@ export default defineConfig({
   grants: {
     enabled: true,
     mode: "transit",
+    max_exp: 900,
     transit_key: "keja-grants",
+    transit_mount: "transit",
   },
 });
 ```
@@ -34,6 +49,7 @@ export default defineConfig({
   grants: {
     enabled: true,
     mode: "secret",
+    max_exp: 900,
     secret: "from-config",
   },
 });
@@ -52,6 +68,13 @@ export default defineConfig({
 ```
 
 ## Issue and verify
+
+| `grant` field | Required | Role                                      |
+| ------------- | -------- | ----------------------------------------- |
+| `subject`     | yes      | Becomes JWT `sub`                         |
+| `action`      | yes      | Claim the verifier must match             |
+| `exp`         | yes      | Lifetime in seconds, at most `max_exp`    |
+| `context`     | no       | Plain object claim. Default `{}`          |
 
 ```ts
 import { grant, verifyGrant } from "@veducio/keja";

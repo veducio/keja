@@ -28,7 +28,16 @@ The token is the `Cf-Access-Jwt-Assertion` header. When that header is empty, Ke
 
 ## Configuration
 
-`cloudflareAccess()` reads `CF_ACCESS_TEAM_DOMAIN` and `CF_ACCESS_AUD` when `team` and `audience` are omitted. A missing value throws project error `2019` when the middleware is created. The message names only the missing variables.
+`cloudflareAccess` is not a `defineConfig` block. Options are passed to the middleware. Env fallbacks are listed on [Project](/project#environment).
+
+| Option / env            | Role                                                                 |
+| ----------------------- | -------------------------------------------------------------------- |
+| `team`                  | Team hostname or `https` origin. Falls back to `CF_ACCESS_TEAM_DOMAIN` |
+| `audience`              | Audience tag, comma-separated string, or string array. Falls back to `CF_ACCESS_AUD` |
+| `CF_ACCESS_TEAM_DOMAIN` | Used when `team` is omitted                                          |
+| `CF_ACCESS_AUD`         | Used when `audience` is omitted                                      |
+
+A missing value throws project error `2019` when the middleware is created. The message names only the missing variables.
 
 ```ts
 cloudflareAccess({

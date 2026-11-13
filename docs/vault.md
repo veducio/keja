@@ -4,9 +4,19 @@ title: Vault
 description: Read a KV v2 secret from HashiCorp Vault.
 ---
 
-Vault holds secrets outside the project files. When it is on, `vaultSecret` reads one KV version 2 secret through the token configured for this process. Leave Vault off until a route needs a secret, or until [Grants](/grants) need Transit or a KV signing secret.
+Vault holds secrets outside the project files. When it is on, `vaultSecret` reads one KV version 2 secret through the token configured for this process. Leave Vault off until a route needs a secret, or until [Grants](/grants) need Transit or a KV signing secret. The full field list is on [Project](/project#vault).
 
 Vault is off until `vault.enabled` is `true`. On startup Keja calls `GET /v1/auth/token/lookup-self`. A failed lookup is project error `2024` and neither server listens. `vaultSecret` then reads one KV version 2 secret through that client. Keja calls `GET /v1/{mount}/data/{path}` and returns the secret data object.
+
+## Config
+
+| Field       | Default / env                   | Role                                 |
+| ----------- | ------------------------------- | ------------------------------------ |
+| `enabled`   | —                               | Required. `false` leaves Vault off   |
+| `address`   | `VAULT_ADDR`                    | Absolute `http` or `https` Vault URL |
+| `token`     | `VAULT_TOKEN`                   | `X-Vault-Token`                      |
+| `namespace` | `VAULT_NAMESPACE`, or omit      | `X-Vault-Namespace` when set         |
+| `mount`     | `VAULT_KV_MOUNT`, else `secret` | KV v2 mount name                     |
 
 ```ts
 export default defineConfig({
@@ -20,13 +30,7 @@ export default defineConfig({
 });
 ```
 
-```ts
-import { vaultSecret } from "@veducio/keja";
-
-const secret = await vaultSecret("apps/keja");
-```
-
-`secret.password` is the value stored in Vault. The default mount is `secret`, so the URL is `/v1/secret/data/apps/keja`. Config values win. A missing address, token, namespace, or mount is filled from the environment.
+Config values win. A missing address, token, namespace, or mount is filled from the environment.
 
 | Variable          | Role                                    |
 | ----------------- | --------------------------------------- |
@@ -34,6 +38,16 @@ const secret = await vaultSecret("apps/keja");
 | `VAULT_TOKEN`     | `X-Vault-Token`                         |
 | `VAULT_NAMESPACE` | `X-Vault-Namespace`, sent when set      |
 | `VAULT_KV_MOUNT`  | Mount name. Default `secret`            |
+
+## Read a secret
+
+```ts
+import { vaultSecret } from "@veducio/keja";
+
+const secret = await vaultSecret("apps/keja");
+```
+
+`secret.password` is the value stored in Vault. The default mount is `secret`, so the URL is `/v1/secret/data/apps/keja`.
 
 `createVault({ address, token, namespace, mount })` builds a separate client. `client.secret(path)` reads the same way. `vaultSecret(path)` without options uses the config client. Calling it while Vault is disabled throws `DependencyNotMet`: `vaultSecret requires vault`.
 

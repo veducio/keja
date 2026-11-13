@@ -4,9 +4,21 @@ title: Argus
 description: Optional registration and service-to-service calls.
 ---
 
-Argus is how one Keja service finds another. On startup the process registers the public port and the service port. `callService` asks Argus for a healthy instance and POSTs to it. Leave Argus off until this service calls another one, or until other services need to find this one.
+Argus is how one Keja service finds another. On startup the process registers the public port and the service port. `callService` asks Argus for a healthy instance and POSTs to it. Leave Argus off until this service calls another one, or until other services need to find this one. The full field list is on [Project](/project#argus).
 
 Argus is the Veducio service registry. It is off until `argus.enabled` is `true`. The first registration runs before either server listens. A failure is project error `2023` and startup stops. After that, a failed heartbeat logs `Argus register failed` or `Argus deregister failed` and the APIs stay up.
+
+## Config
+
+| Field      | Default              | Role                                                              |
+| ---------- | -------------------- | ----------------------------------------------------------------- |
+| `enabled`  | —                    | Required. `false` leaves Argus off                                |
+| `url`      | —                    | Required when enabled. Absolute `http` or `https` Argus base URL  |
+| `env`      | —                    | Required when enabled. Argus environment name                     |
+| `username` | omit                 | Basic auth username. Set with `password`, or omit both            |
+| `password` | omit                 | Basic auth password. Set with `username`, or omit both            |
+| `public`   | service `name`       | Catalog key for the public port                                   |
+| `service`  | `<name>-service`     | Catalog key for the service port                                  |
 
 ```ts
 export default defineConfig({

@@ -6,7 +6,12 @@ description: Version tokens and how Keja chooses a handler.
 
 Every request names a version in the first path segment, such as `/v1/hello`. Every route is written for one version. Keja runs the newest route for that method and path whose version is not newer than the one the caller asked for. A caller on `v1` keeps the `v1` handler after `v2` exists. A caller on `v2` still reaches a `v1` route when `v2` has no route for that method and path.
 
-`defineVersions` records each version id and the instant it was released. Ids match `v` plus a whole number: `v0`, `v1`, `v2`, `v10`. `v01` is rejected. The release date is `YYYY-MM-DD`, `DD-MM-YYYY`, a unix timestamp in seconds, or a unix timestamp in milliseconds.
+`defineVersions` records each version id and the instant it was released. Ids match `v` plus a whole number: `v0`, `v1`, `v2`, `v10`. `v01` is rejected.
+
+| Field        | Required | Role                                                                 |
+| ------------ | -------- | -------------------------------------------------------------------- |
+| key          | yes      | Version id: `v` plus a whole number                                  |
+| `releasedAt` | yes      | `YYYY-MM-DD`, `DD-MM-YYYY`, unix seconds, or unix milliseconds       |
 
 ```ts
 import { defineVersions } from "@veducio/keja";

@@ -52,4 +52,4 @@ The generated scripts call the `keja` command. `keja dev` reloads the project wh
 }
 ```
 
-`keja init` copies `.env.example` to `.env` when `.env` is missing. Set `HOST`, `HTTP_PORT`, and `HTTP_SERVICE_PORT` before the first start. When `db` is enabled, also set `DATABASE_URL`.
+`keja init` copies `.env.example` to `.env` when `.env` is missing. Set `HOST`, `HTTP_PORT`, and `HTTP_SERVICE_PORT` before the first start. When `db` is enabled, also set `DATABASE_URL`. Every config field and env var is listed on [Project](/project).
