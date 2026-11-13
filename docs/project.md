@@ -1,12 +1,11 @@
 ---
-
 title: Project
-description: Layout, config, and environment for a Keja project.
+description: Project layout, defineConfig fields, and environment variables.
 ---
 
-A Keja project is one directory. It holds the version catalog, the public routes, the service routes, and, when you store data, the migrations and repositories. `keja dev` loads the directory you run it in.
+A Keja project is the directory you run `keja dev`, `keja start`, `keja migrate`, `keja generate`, or `keja seed` from. `keja.versioning.ts` is required. `keja.config.ts` is optional; without it Keja uses defaults.
 
-A Keja project is the current directory of `keja dev`, `keja start`, `keja migrate`, `keja generate`, or `keja seed`. `keja.versioning.ts` is required. `keja.config.ts` is optional.
+## Layout
 
 ```txt
 keja.versioning.ts
@@ -20,22 +19,20 @@ seed/
 .env
 ```
 
-## Versions
+Paths for versioning, public routes, and service routes are configurable. Migrations and seed folders apply when the database is enabled.
 
-`keja.versioning.ts` default-exports `defineVersions`. Each key is `v` plus a whole number. `releasedAt` is `YYYY-MM-DD`, `DD-MM-YYYY`, or a unix timestamp.
+## `defineVersions`
 
-```ts
-import { defineVersions } from "@veducio/keja";
+Default-export from `keja.versioning.ts` (or the path in `versioning`).
 
-export default defineVersions({
-  v1: { releasedAt: "2026-01-01" },
-  v2: { releasedAt: "2026-06-01" },
-});
-```
+| Field        | Required | Description                                                          |
+| ------------ | -------- | -------------------------------------------------------------------- |
+| key          | yes      | Version id: `v` plus a whole number (`v1`, not `v01`)                |
+| `releasedAt` | yes      | `YYYY-MM-DD`, `DD-MM-YYYY`, unix seconds, or unix milliseconds       |
 
-## Config
+## `defineConfig`
 
-`keja.config.ts` default-exports `defineConfig`. Omitted paths use the defaults below. A path is resolved from the project root. An empty path fails startup. Nested blocks that are omitted are off, except `batch`, which defaults to on.
+Default-export from `keja.config.ts`. Omitted nested blocks are off, except `batch`, which defaults to on. Paths resolve from the project root. Empty paths fail startup.
 
 ```ts
 import { defineConfig } from "@veducio/keja";
@@ -48,26 +45,14 @@ export default defineConfig({
   db: { enabled: true, migrations: "migrations" },
   argus: {
     enabled: true,
-    url: "https://argus.veducio.com",
+    url: "https://argus.example",
     env: "staging",
-    username: "argus",
-    password: "secret",
-    public: "billing",
-    service: "billing-service",
   },
-  vault: {
-    enabled: true,
-    address: "https://vault.example",
-    token: "s.token",
-    namespace: "apps",
-    mount: "secret",
-  },
+  vault: { enabled: true },
   grants: {
     enabled: true,
     mode: "transit",
-    max_exp: 900,
     transit_key: "keja-grants",
-    transit_mount: "transit",
   },
   batch: true,
 });
@@ -75,104 +60,96 @@ export default defineConfig({
 
 ### Top level
 
-| Field          | Default                               | Role                                                    |
-| -------------- | ------------------------------------- | ------------------------------------------------------- |
-| `name`         | package name, then the directory name | Identity and Argus catalog name                         |
-| `versioning`   | `keja.versioning.ts`                  | Version catalog path                                    |
-| `public_path`  | `src/public`                          | Public route folder                                     |
-| `service_path` | `src/service`                         | Service route folder                                    |
-| `db`           | `{ enabled: false }`                  | Postgres. See [Database](#db)                           |
-| `argus`        | `{ enabled: false }`                  | Service registry. See [Argus](#argus)                   |
-| `vault`        | `{ enabled: false }`                  | KV v2 client. See [Vault](#vault)                       |
-| `grants`       | `{ enabled: false }`                  | Grant JWTs. See [Grants](#grants)                       |
-| `batch`        | `{ enabled: true }`                   | `POST /{version}/batch`. See [Batch](#batch)            |
+| Field          | Default                               | Description                         |
+| -------------- | ------------------------------------- | ----------------------------------- |
+| `name`         | package name, then directory name     | Identity and Argus catalog name     |
+| `versioning`   | `keja.versioning.ts`                  | Version catalog path                |
+| `public_path`  | `src/public`                          | Public route folder                 |
+| `service_path` | `src/service`                         | Service route folder                |
+| `db`           | `{ enabled: false }`                  | Postgres                            |
+| `argus`        | `{ enabled: false }`                  | Service registry                    |
+| `vault`        | `{ enabled: false }`                  | Vault KV client                     |
+| `grants`       | `{ enabled: false }`                  | Grant JWTs                          |
+| `batch`        | `{ enabled: true }`                   | `POST /{version}/batch`             |
 
-`name` in config is used as written. Otherwise Keja reads `package.json` and drops a scope, so `@veducio/billing` becomes `billing`. With no package name, the directory name is used.
+If `name` is omitted, Keja reads `package.json` and drops a scope (`@org/billing` → `billing`). With no package name, the directory name is used.
 
 ### `db`
 
-| Field         | Default        | Role                                                                 |
-| ------------- | -------------- | -------------------------------------------------------------------- |
-| `enabled`     | —              | Required. `false` leaves Postgres off                                |
-| `migrations`  | `migrations`   | Folder of `0001_name.sql` files when `enabled` is `true`             |
-
-See [Database](/database).
+| Field        | Default      | Description                                          |
+| ------------ | ------------ | ---------------------------------------------------- |
+| `enabled`    | —            | Required boolean                                     |
+| `migrations` | `migrations` | Folder of `0001_name.sql` files when enabled         |
 
 ### `argus`
 
-| Field      | Default | Role                                                                 |
-| ---------- | ------- | -------------------------------------------------------------------- |
-| `enabled`  | —       | Required. `false` leaves Argus off                                   |
-| `url`      | —       | Required when enabled. Absolute `http` or `https` Argus base URL     |
-| `env`      | —       | Required when enabled. Argus environment name                        |
-| `username` | omit    | Basic auth username. Set with `password`, or omit both               |
-| `password` | omit    | Basic auth password. Set with `username`, or omit both               |
-| `public`   | `name`  | Catalog key for the public port                                      |
-| `service`  | `<name>-service` | Catalog key for the service port                              |
-
-See [Argus](/argus).
+| Field      | Default          | Description                                              |
+| ---------- | ---------------- | -------------------------------------------------------- |
+| `enabled`  | —                | Required boolean                                         |
+| `url`      | —                | Required when enabled. Absolute `http`/`https` URL       |
+| `env`      | —                | Required when enabled                                    |
+| `username` | omit             | Basic auth; set with `password` or omit both             |
+| `password` | omit             | Basic auth; set with `username` or omit both             |
+| `public`   | service `name`   | Catalog key for the public port                          |
+| `service`  | `<name>-service` | Catalog key for the service port                         |
 
 ### `vault`
 
-Config values win. A missing field is filled from the environment when that variable is set.
+Config values win over environment variables.
 
-| Field       | Default / env                         | Role                                      |
-| ----------- | ------------------------------------- | ----------------------------------------- |
-| `enabled`   | —                                     | Required. `false` leaves Vault off        |
-| `address`   | `VAULT_ADDR`                          | Absolute `http` or `https` Vault URL      |
-| `token`     | `VAULT_TOKEN`                         | `X-Vault-Token`                           |
-| `namespace` | `VAULT_NAMESPACE`, or omit            | `X-Vault-Namespace` when set              |
-| `mount`     | `VAULT_KV_MOUNT`, else `secret`       | KV v2 mount name                          |
+| Field       | Default / env                   | Description                    |
+| ----------- | ------------------------------- | ------------------------------ |
+| `enabled`   | —                               | Required boolean               |
+| `address`   | `VAULT_ADDR`                    | Absolute Vault URL             |
+| `token`     | `VAULT_TOKEN`                   | `X-Vault-Token`                |
+| `namespace` | `VAULT_NAMESPACE`, or omit      | `X-Vault-Namespace` when set   |
+| `mount`     | `VAULT_KV_MOUNT`, else `secret` | KV v2 mount                    |
 
-Address and token are required when Vault is enabled. See [Vault](/vault).
+Address and token are required when enabled.
 
 ### `grants`
 
-| Field           | Default / env              | Role                                                                 |
-| --------------- | -------------------------- | -------------------------------------------------------------------- |
-| `enabled`       | —                          | Required. `false` leaves grants off                                  |
-| `mode`          | `transit`                  | `transit` or `secret`                                                |
-| `max_exp`       | `900`                      | Max `exp` in seconds for `grant()`                                   |
-| `transit_key`   | —                          | Required for `transit`. Vault Transit key name                       |
-| `transit_mount` | `transit`                  | Vault Transit mount                                                  |
-| `secret`        | `GRANT_SECRET`             | HS256 secret for `secret` mode. Config wins over the env var         |
-| `secret_vault`  | omit                       | KV path for the HS256 secret when not set in config or `GRANT_SECRET` |
-| `secret_field`  | `secret`                   | Field name inside that KV secret                                     |
+| Field           | Default / env  | Description                                              |
+| --------------- | -------------- | -------------------------------------------------------- |
+| `enabled`       | —              | Required boolean                                         |
+| `mode`          | `transit`      | `transit` or `secret`                                    |
+| `max_exp`       | `900`          | Max `grant({ exp })` lifetime in seconds                 |
+| `transit_key`   | —              | Required for `transit`                                   |
+| `transit_mount` | `transit`      | Vault Transit mount                                      |
+| `secret`        | `GRANT_SECRET` | HS256 secret for `secret` mode                           |
+| `secret_vault`  | omit           | KV path alternative to `secret` / env                    |
+| `secret_field`  | `secret`       | Field inside the KV secret                               |
 
-`mode: "transit"` requires [Vault](/vault) enabled. `secret_vault` also requires Vault. One of `secret`, `GRANT_SECRET`, or `secret_vault` is required for `mode: "secret"`. See [Grants](/grants).
+`mode: "transit"` and `secret_vault` require Vault enabled. For `secret` mode, one of `secret`, `GRANT_SECRET`, or `secret_vault` is required.
 
 ### `batch`
 
-| Form                       | Role                                      |
-| -------------------------- | ----------------------------------------- |
-| `true` / omit              | `POST /{version}/batch` is registered     |
-| `false`                    | Batch is off                              |
-| `{ enabled: true \| false }` | Same as the boolean                     |
-
-See [Routes](/routes#batch).
+| Form                         | Description        |
+| ---------------------------- | ------------------ |
+| omit / `true`                | Batch enabled      |
+| `false`                      | Batch disabled     |
+| `{ enabled: true \| false }` | Same as boolean    |
 
 ## Environment
 
-| Variable                 | Required                                                                     | Role                                             |
-| ------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------------ |
-| `HOST`                   | yes                                                                          | Bind address                                     |
-| `HTTP_PORT`              | yes                                                                          | Public server port, `1`–`65535`                  |
-| `HTTP_SERVICE_PORT`      | yes                                                                          | Service server port, `1`–`65535`                 |
-| `OPENAPI_SERVER`         | no                                                                           | `servers[0].url` in the public OpenAPI document  |
-| `OPENAPI_SERVICE_SERVER` | no                                                                           | `servers[0].url` in the service OpenAPI document |
-| `DATABASE_URL`           | when `db.enabled` is true                                                    | `postgres://` or `postgresql://`                 |
-| `VAULT_ADDR`             | when `vault.enabled` and `vault.address` is omitted                          | Vault base URL                                   |
-| `VAULT_TOKEN`            | when `vault.enabled` and `vault.token` is omitted                            | Vault token                                      |
-| `VAULT_NAMESPACE`        | no                                                                           | Vault namespace when set                         |
-| `VAULT_KV_MOUNT`         | no                                                                           | KV mount. Default `secret`                       |
-| `GRANT_SECRET`           | when grants use `mode: "secret"` without `grants.secret` or `secret_vault`   | HS256 signing secret                             |
-| `CF_ACCESS_TEAM_DOMAIN`  | when `cloudflareAccess()` omits `team`                                       | Access team hostname or origin                   |
-| `CF_ACCESS_AUD`          | when `cloudflareAccess()` omits `audience`                                   | Access audience tag                              |
+| Variable                 | Required                                                                   | Description                                      |
+| ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------ |
+| `HOST`                   | yes                                                                        | Bind address                                     |
+| `HTTP_PORT`              | yes                                                                        | Public port `1`–`65535`                          |
+| `HTTP_SERVICE_PORT`      | yes                                                                        | Service port `1`–`65535`                         |
+| `OPENAPI_SERVER`         | no                                                                         | Public OpenAPI `servers[0].url`                  |
+| `OPENAPI_SERVICE_SERVER` | no                                                                         | Service OpenAPI `servers[0].url`                 |
+| `DATABASE_URL`           | when `db.enabled`                                                          | `postgres://` or `postgresql://`                 |
+| `VAULT_ADDR`             | when Vault enabled and `address` omitted                                   | Vault base URL                                   |
+| `VAULT_TOKEN`            | when Vault enabled and `token` omitted                                     | Vault token                                      |
+| `VAULT_NAMESPACE`        | no                                                                         | Vault namespace                                   |
+| `VAULT_KV_MOUNT`         | no                                                                         | KV mount (default `secret`)                      |
+| `GRANT_SECRET`           | when grants `secret` mode without `secret` / `secret_vault`                | HS256 secret                                     |
+| `CF_ACCESS_TEAM_DOMAIN`  | when `cloudflareAccess()` omits `team`                                     | Access team host or origin                       |
+| `CF_ACCESS_AUD`          | when `cloudflareAccess()` omits `audience`                                 | Access audience                                  |
 
-An OpenAPI URL must be an absolute `http` or `https` URL.
+OpenAPI URLs must be absolute `http` or `https`.
 
-## Startup
+## Startup checks
 
-After a successful listen, Keja prints the loaded paths, the identity, the database, and the bind addresses. The config line is the absolute path of `keja.config.ts`, or `defaults` when that file is absent. Database is `disabled`, or `postgres` when the pool is open. Migrations are applied by `keja migrate`. Argus and Vault are printed when they are enabled.
-
-When `db`, `argus`, `vault`, or `grants` is enabled, Keja checks that service before either server listens. Transit grants and `secret_vault` need Vault on. A failed check throws `ProjectError`. `keja dev` prints it and waits. `keja start` prints it and exits `1`.
+When `db`, `argus`, `vault`, or `grants` is enabled, Keja validates that dependency before listen. Transit grants and `secret_vault` require Vault. Failures throw `ProjectError`. `keja dev` prints and waits; `keja start` exits `1`.

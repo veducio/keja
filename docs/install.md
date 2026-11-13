@@ -1,10 +1,17 @@
 ---
-
 title: Install
-description: Install Keja from npm or GitHub Packages and create a project.
+description: Install Keja and create a project with keja init.
 ---
 
-Install puts Keja on the machine and `keja init` creates the project. [Build first service](/build-first-service) is the next page. It serves `GET /v1/hello` from that project.
+This lesson gets Keja onto your machine and creates a project directory you can run. When you finish, you have a folder with routes, config, and a `.env` file. The next lesson starts that project and serves a request.
+
+## Prerequisites
+
+- [Bun](https://bun.sh) installed (Keja targets Bun 1.4+)
+- Git installed (`keja init` runs `git init`)
+- An empty directory for the new project (or let init create one)
+
+## Install the package
 
 Keja publishes to npm as `@veducio/keja`.
 
@@ -16,20 +23,21 @@ bun add @veducio/keja zod
 import { defineRoute, response } from "@veducio/keja";
 ```
 
-The same name is also on GitHub Packages. That copy is restricted. An install from GitHub needs a token that can read packages from the `veducio` organization. Add this `.npmrc` before that install so the `veducio` scope comes from GitHub Packages:
+The same package name is also on GitHub Packages. That feed is restricted. To install from GitHub Packages instead of npm, add an `.npmrc` that sends the `@veducio` scope there, then run the same `bun add` command:
 
 ```txt
 @veducio:registry=https://npm.pkg.github.com
 ```
 
-```shell
-bun add @veducio/keja zod
-```
+You need a token that can read packages from the `veducio` organization.
 
-`keja init` creates a project from the starter that ships inside the package. Bun and Git must be installed. The destination must be empty. Init copies the starter, writes `package.json`, `keja.config.ts`, and `tsconfig.json`, adds a public `GET /hello` and a service `POST /ping`, runs `bun install`, then runs `git init`. The new project depends on `@veducio/keja`. Init writes `.npmrc` for GitHub Packages when the package that ran `init` came from GitHub Packages. An npm install leaves that file out, so the new project installs from npm.
+## Create a project
+
+`keja init` copies the starter that ships inside the package. Bun and Git must be available. The destination must be empty.
 
 ```shell
-keja init --name my-app --dir ./my-app --public ./src/public --service ./src/service
+keja init --name my-app --dir ./my-app
+cd my-app
 ```
 
 | Flag        | Default         |
@@ -39,9 +47,25 @@ keja init --name my-app --dir ./my-app --public ./src/public --service ./src/ser
 | `--public`  | `./src/public`  |
 | `--service` | `./src/service` |
 
-In a terminal, Enter accepts the default for any flag you omit. Without a terminal, omitted flags use those defaults. The public and service paths are relative to the new project and are written into `keja.config.ts`. The dependency is `^` plus the version of the Keja package that ran `init`.
+In a terminal, Enter accepts the default for any flag you omit. Without a terminal, omitted flags use those defaults. The public and service paths are written into `keja.config.ts`. The dependency is `^` plus the version of the Keja package that ran `init`.
 
-The generated scripts call the `keja` command. `keja dev` reloads the project when a route or a file it imports changes. Bun loads `.env` from the project directory.
+Init copies the starter, writes `package.json`, `keja.config.ts`, and `tsconfig.json`, adds a public `GET /hello` and a service `POST /ping`, runs `bun install`, then runs `git init`. If the Keja package that ran init came from GitHub Packages, init also writes `.npmrc` for that feed. An npm install leaves `.npmrc` out so the new project installs from npm.
+
+## Environment
+
+Init copies `.env.example` to `.env` when `.env` is missing. Set these before the first start:
+
+| Variable            | Example       |
+| ------------------- | ------------- |
+| `HOST`              | `127.0.0.1`   |
+| `HTTP_PORT`         | `3000`        |
+| `HTTP_SERVICE_PORT` | `3001`        |
+
+When Postgres is enabled in config, also set `DATABASE_URL` to a `postgres://` or `postgresql://` URL. The full env list is in [Project](/project#environment).
+
+## Scripts
+
+The generated `package.json` calls the `keja` command:
 
 ```json
 {
@@ -52,4 +76,10 @@ The generated scripts call the `keja` command. `keja dev` reloads the project wh
 }
 ```
 
-`keja init` copies `.env.example` to `.env` when `.env` is missing. Set `HOST`, `HTTP_PORT`, and `HTTP_SERVICE_PORT` before the first start. When `db` is enabled, also set `DATABASE_URL`. Every config field and env var is listed on [Project](/project).
+Bun loads `.env` from the project directory when you run those scripts.
+
+## What you should have
+
+A project directory with `keja.versioning.ts`, `keja.config.ts`, `src/public/hello.ts`, `src/service/ping.ts`, and `.env`.
+
+Next: [Build first service](/build-first-service).

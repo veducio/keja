@@ -1,12 +1,11 @@
 ---
-
 title: Responses
-description: Named respond helpers and constant response fields.
+description: response() helpers and respond.Name in handlers.
 ---
 
-A handler returns `respond.Name(...)`. It does not build the HTTP response itself. Each name is a status code and a Zod schema, so the body has to match what the route declared.
+Handlers return `respond.Name(...)`. Each key in `responses` becomes a helper with a fixed status code and Zod schema.
 
-Each name in `responses` becomes `respond.Name` in the handler. `response` sets the status code and the Zod schema. The handler returns that function's result.
+## `response`
 
 ```ts
 responses: {
@@ -18,11 +17,17 @@ responses: {
 handler: ({ body, respond }) => respond.Created({ id: "1", name: body.name }),
 ```
 
-The status code is an integer from `100` to `599`. Anything else is project error `2010`. A value that fails the schema returns HTTP `500` and framework error `1004`, including the Zod issues.
+| Field  | Required | Description                                      |
+| ------ | -------- | ------------------------------------------------ |
+| `code` | yes      | Integer status `100`–`599` (`2010` if outside)   |
+| `json` | yes      | Zod schema for the JSON body                     |
+| `const`| no       | Fields merged onto the body; win over handler    |
 
-## Constant fields
+If the handler result fails the schema, Keja returns HTTP `500` and framework error `1004` (includes Zod issues).
 
-`const` lists fields the handler does not pass. Keja merges them onto the body, and those values win when the handler also sends them. The schema still has to accept the merged object. A response whose every field is constant is a function with no arguments.
+## Constant-only bodies
+
+When every field is in `const`, the helper takes no arguments:
 
 ```ts
 Gone: response({

@@ -1,35 +1,33 @@
 ---
-
 title: Build first service
 description: Serve GET /v1/hello, then store one table.
 ---
 
-This page builds the smallest Keja service. Each step does one thing and links to the page that explains it. [Install](/install) covers the GitHub Packages token and `bun add`.
+This lesson builds the smallest useful Keja service. You will serve a public hello route, call the service port, then store and list one Postgres table. Finish [Install](/install) first so you have a project directory.
 
-## Create the project
+## 1. Open the project and turn Postgres off for a moment
 
-`keja init` copies the starter into an empty directory, writes `.env` from `.env.example`, runs `bun install`, runs `git init`, and adds `src/public/hello.ts` plus `src/service/ping.ts`.
+The starter enables Postgres. The first requests do not need a database. Open `keja.config.ts` and set:
 
-```shell
-keja init --name my-app --dir ./my-app
-cd my-app
+```ts
+db: { enabled: false },
 ```
 
-The starter turns Postgres on. The first request on this page does not need a database, so open `keja.config.ts` and set `db` to `{ enabled: false }` until the data section below. [Project](/project) lists the other config fields.
-
-`.env` already sets `HOST`, `HTTP_PORT`, and `HTTP_SERVICE_PORT`. The starter values are `127.0.0.1`, `3000`, and `3001`.
+`.env` should already define `HOST`, `HTTP_PORT`, and `HTTP_SERVICE_PORT` (typically `127.0.0.1`, `3000`, `3001`).
 
 ```shell
 bun run dev
 ```
 
-`keja dev` prints `no issues found` when the project loads. Request the public port:
+When the project loads, the CLI prints `no issues found`.
+
+## 2. Call the hello route
 
 ```shell
 curl http://127.0.0.1:3000/v1/hello
 ```
 
-The body is `{ "message": "hello" }`. `src/public/hello.ts` is the route that produced it:
+You should see `{ "message": "hello" }`. That response comes from `src/public/hello.ts`:
 
 ```ts
 import { defineRoute, response } from "@veducio/keja";
@@ -49,11 +47,11 @@ export default defineRoute({
 });
 ```
 
-`path` is `/hello`. The `/v1` in the URL is the version, from the next section. Saving this file reloads the route. `keja dev` prints `reloading...` and then `no issues found`.
+Save a change to that file. `keja dev` prints `reloading...`, then `no issues found` again.
 
-## The version in the URL
+## 3. See the version in the URL
 
-`keja.versioning.ts` is the catalog. The starter publishes one version:
+`keja.versioning.ts` lists published versions:
 
 ```ts
 import { defineVersions } from "@veducio/keja";
@@ -63,11 +61,11 @@ export default defineVersions({
 });
 ```
 
-The first segment of a request path is that version. `GET /v1/hello` asks for `v1` and the route path `/hello`. [Versioning](/versioning) explains what happens when a later version exists and this path does not.
+`GET /v1/hello` means version `v1` and route path `/hello`. You will learn fallback rules later; for this lesson, one version is enough.
 
-## Change the greeting
+## 4. Read a query parameter
 
-Add a query parameter so the handler reads the request. [Routes](/routes) describes `request`. [Responses](/responses) describes `respond.Hello`.
+Replace the hello route so it requires `name`:
 
 ```ts
 export default defineRoute({
@@ -92,25 +90,23 @@ export default defineRoute({
 curl "http://127.0.0.1:3000/v1/hello?name=Ada"
 ```
 
-The body is `{ "message": "hello Ada" }`. A request with no `name` returns HTTP `400`.
+You should see `{ "message": "hello Ada" }`. Omitting `name` returns HTTP `400`.
 
-## The second server
+## 5. Call the service port
 
-The same process listens on `HTTP_SERVICE_PORT`. Service routes are POST. The starter’s `src/service/ping.ts` is `POST /ping`.
+The same process listens on `HTTP_SERVICE_PORT`. Service routes are POST only. The starter includes `src/service/ping.ts`.
 
 ```shell
 curl -X POST http://127.0.0.1:3001/v1/ping
 ```
 
-The body is `{ "ok": true }`. [Servers](/servers) lists the reserved routes on both ports, including `/_health` and `/docs`.
+You should see `{ "ok": true }`. Open `http://127.0.0.1:3000/docs` in a browser for the public Scalar UI.
 
-## When the service stores data
+## 6. Store a table
 
-Turn Postgres back on when a route needs to store a row. [OwnedObjects](/owned-objects) is the column shape. [TypeIDs](/type-ids) is the `_id`. [Database](/database) is migrations, repositories, and seed data.
+Set `db` back to `{ enabled: true }` in `keja.config.ts`. Add a `postgres://` or `postgresql://` `DATABASE_URL` to `.env`. Restart `keja dev` so the pool opens (database settings are not hot-reloaded).
 
-Set `db` to `{ enabled: true }` in `keja.config.ts`. `.env` needs a `postgres://` or `postgresql://` `DATABASE_URL`. Restart `keja dev` after that change so the pool opens. The database pool stays as it was at boot.
-
-The starter already has `migrations/0001_init.sql`. Add the notes table as the next file, `migrations/0002_notes.sql`:
+Add `migrations/0002_notes.sql` (keep any starter migration that already exists):
 
 ```sql
 create table notes (
@@ -125,7 +121,7 @@ create table notes (
 );
 ```
 
-`keja.repositories.ts` turns on list for that table:
+Enable list for that table in `keja.repositories.ts`:
 
 ```ts
 import { defineRepositories } from "@veducio/keja";
@@ -135,14 +131,14 @@ export default defineRepositories({
 });
 ```
 
-Apply the SQL, then generate the repository. Generate reads the migration files. It does not connect to Postgres.
+Apply SQL, then generate repositories:
 
 ```shell
 keja migrate
 keja generate
 ```
 
-`keja generate` writes `src/db/repositories.ts`. A route attaches `notes.list.schema` and passes the tenant itself. The tenant is a value your service already knows. This handler uses a fixed one so the first list runs:
+Create `src/public/notes.ts`:
 
 ```ts
 import { defineRoute, response } from "@veducio/keja";
@@ -175,12 +171,17 @@ export default defineRoute({
 });
 ```
 
-Save that file as `src/public/notes.ts`. After the reload:
-
 ```shell
 curl http://127.0.0.1:3000/v1/notes
 ```
 
-The body is `{ "notes": [], "nextCursor": null }` until a row exists. `notes.meta` is the stored row, including `_id` and the timestamps. `notes.schema` is the domain columns only, here `message`. `keja seed` inserts starter rows. The Database page shows `defineSeeder`.
+You should see `{ "notes": [], "nextCursor": null }` until rows exist. Use [How to use Postgres](/how-to-use-postgres) for seeders and writes.
 
-Argus, Vault, Grants, and Cloudflare Access stay off until a service needs them. Batch is on by default. Set `batch: false` in `keja.config.ts` to turn `POST /{version}/batch` off.
+## You finished the lesson
+
+You have a public route, a service route, Scalar docs, and a generated list endpoint. Next steps by task:
+
+- [How to add a route](/how-to-add-a-route)
+- [How to version an API](/how-to-version-an-api)
+- [How to batch requests](/how-to-batch-requests)
+- [Why Keja](/why-keja) if you want the design discussion

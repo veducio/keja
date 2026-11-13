@@ -2,38 +2,58 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Keja",
-  "description": "A Bun server for Veducio container services.",
+  "description": "A Bun server for container microservices.",
   "colors": {
     "primary": "#0F766E"
   },
   "navigation": {
     "groups": [
       {
-        "group": "Overview",
+        "group": "Start here",
         "pages": ["index", "install", "build-first-service"]
       },
       {
-        "group": "Project",
-        "pages": ["project", "commands"]
+        "group": "How-to guides",
+        "pages": [
+          "how-to-add-a-route",
+          "how-to-version-an-api",
+          "how-to-use-postgres",
+          "how-to-batch-requests",
+          "how-to-call-a-service",
+          "how-to-read-vault-secrets",
+          "how-to-issue-grants",
+          "how-to-protect-with-access"
+        ]
       },
       {
-        "group": "HTTP",
+        "group": "Reference",
         "pages": [
-          "versioning",
+          "project",
+          "commands",
           "routes",
           "responses",
           "middleware",
           "servers",
-          "errors"
+          "versioning",
+          "database",
+          "owned-objects",
+          "type-ids",
+          "errors",
+          "argus",
+          "vault",
+          "grants",
+          "access"
         ]
       },
       {
-        "group": "Data",
-        "pages": ["owned-objects", "type-ids", "database"]
-      },
-      {
-        "group": "Integrations",
-        "pages": ["argus", "vault", "grants", "access"]
+        "group": "Explanation",
+        "pages": [
+          "why-keja",
+          "two-servers",
+          "api-versioning",
+          "owned-objects-model",
+          "integrations-overview"
+        ]
       }
     ]
   }

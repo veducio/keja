@@ -1,23 +1,32 @@
 ---
-
 title: TypeIDs
-description: Time-ordered ids stored on OwnedObjects rows.
+description: TypeID format and helpers for OwnedObjects ids.
 ---
 
-A TypeID is the `_id` of an [OwnedObjects](/owned-objects) row. The suffix is time-ordered, so a row created later sorts after a row created earlier, and Postgres can append new ids in an index.
-
-A TypeID is a lowercase prefix, an underscore, and 26 Crockford base32 characters. The suffix encodes a UUIDv7, so values created later sort after values created earlier. Postgres can append them in a B-tree.
+A TypeID is the usual `_id` on an OwnedObjects row: lowercase prefix, underscore, 26 Crockford base32 characters encoding a UUIDv7.
 
 ```txt
 user_01h455vb4pex5vsknk084sn02q
 ```
 
-The prefix starts and ends with a letter, contains only `a-z` and `_`, and is at most 63 characters. `TypeIdError` is thrown for a bad prefix, route, or object type.
+## Prefix rules
+
+- Starts and ends with a letter
+- Only `a-z` and `_`
+- At most 63 characters
+
+Bad prefix, route, or object type → `TypeIdError`.
+
+## Helpers
 
 ```ts
 import {
+  assertObjectType,
+  assertOwnedObject,
   createObjectRow,
   createTypeId,
+  idPrefixFromObjectType,
+  isObjectType,
   isTypeId,
   objectTypeFromRoute,
   parseTypeId,
@@ -27,10 +36,13 @@ const objectType = objectTypeFromRoute(2, "/core/users");
 const row = createObjectRow(objectType, { tenant: "tenant_1" });
 ```
 
-`objectType` is `v2.core.users`. The row is an [OwnedObjects](/owned-objects) record: `_id`, `_object`, `_tenant`, `_archived: false`, `_createdAt`, and `_updatedAt`. The id prefix defaults to the last segment, `users`. Pass `idPrefix` to override it.
-
-`objectTypeFromRoute` requires a version integer of at least `1` and a path whose segments are valid TypeID prefixes. A parameter such as `:id` is rejected.
-
-`assertObjectType` and `isObjectType` check a string of the form `vN.segment` with one or more segments. `idPrefixFromObjectType` returns the last segment. `parseTypeId` returns `{ prefix, suffix }` or `null`. `isTypeId(value, prefix)` checks one prefix.
-
-`assertOwnedObject` checks a full stored row, including domain columns.
+| Function | Role |
+| -------- | ---- |
+| `createTypeId` | Build a TypeID |
+| `parseTypeId` | `{ prefix, suffix }` or `null` |
+| `isTypeId(value, prefix?)` | Validate |
+| `objectTypeFromRoute(version, path)` | `vN.seg...`; version ≥ 1; path segments are prefixes; no `:params` |
+| `createObjectRow` | OwnedObjects envelope (`_id`, `_object`, `_tenant`, `_archived: false`, timestamps); optional `idPrefix` |
+| `assertObjectType` / `isObjectType` | `vN.segment`… |
+| `idPrefixFromObjectType` | Last segment |
+| `assertOwnedObject` | Full stored row including domain keys |

@@ -1,45 +1,23 @@
 ---
-
 title: Vault
-description: Read a KV v2 secret from HashiCorp Vault.
+description: Vault KV v2 client reference.
 ---
 
-Vault holds secrets outside the project files. When it is on, `vaultSecret` reads one KV version 2 secret through the token configured for this process. Leave Vault off until a route needs a secret, or until [Grants](/grants) need Transit or a KV signing secret. The full field list is on [Project](/project#vault).
+Off until `vault.enabled` is `true`. Config: [Project](/project#vault).
 
-Vault is off until `vault.enabled` is `true`. On startup Keja calls `GET /v1/auth/token/lookup-self`. A failed lookup is project error `2024` and neither server listens. `vaultSecret` then reads one KV version 2 secret through that client. Keja calls `GET /v1/{mount}/data/{path}` and returns the secret data object.
+## Config and env
 
-## Config
+| Field | Default / env | Description |
+| ----- | ------------- | ----------- |
+| `enabled` | — | Required |
+| `address` | `VAULT_ADDR` | Absolute URL |
+| `token` | `VAULT_TOKEN` | Token |
+| `namespace` | `VAULT_NAMESPACE` | Optional |
+| `mount` | `VAULT_KV_MOUNT` or `secret` | KV v2 mount |
 
-| Field       | Default / env                   | Role                                 |
-| ----------- | ------------------------------- | ------------------------------------ |
-| `enabled`   | —                               | Required. `false` leaves Vault off   |
-| `address`   | `VAULT_ADDR`                    | Absolute `http` or `https` Vault URL |
-| `token`     | `VAULT_TOKEN`                   | `X-Vault-Token`                      |
-| `namespace` | `VAULT_NAMESPACE`, or omit      | `X-Vault-Namespace` when set         |
-| `mount`     | `VAULT_KV_MOUNT`, else `secret` | KV v2 mount name                     |
+Startup: `GET /v1/auth/token/lookup-self`. Failure → `2024`.
 
-```ts
-export default defineConfig({
-  vault: {
-    enabled: true,
-    address: "https://vault.example",
-    token: "s.token",
-    namespace: "apps",
-    mount: "kv",
-  },
-});
-```
-
-Config values win. A missing address, token, namespace, or mount is filled from the environment.
-
-| Variable          | Role                                    |
-| ----------------- | --------------------------------------- |
-| `VAULT_ADDR`      | Absolute `http` or `https` URL of Vault |
-| `VAULT_TOKEN`     | `X-Vault-Token`                         |
-| `VAULT_NAMESPACE` | `X-Vault-Namespace`, sent when set      |
-| `VAULT_KV_MOUNT`  | Mount name. Default `secret`            |
-
-## Read a secret
+## `vaultSecret`
 
 ```ts
 import { vaultSecret } from "@veducio/keja";
@@ -47,10 +25,22 @@ import { vaultSecret } from "@veducio/keja";
 const secret = await vaultSecret("apps/keja");
 ```
 
-`secret.password` is the value stored in Vault. The default mount is `secret`, so the URL is `/v1/secret/data/apps/keja`.
+Reads `GET /v1/{mount}/data/{path}` and returns the secret data object. Disabled → `DependencyNotMet`: `vaultSecret requires vault`.
 
-`createVault({ address, token, namespace, mount })` builds a separate client. `client.secret(path)` reads the same way. `vaultSecret(path)` without options uses the config client. Calling it while Vault is disabled throws `DependencyNotMet`: `vaultSecret requires vault`.
+## `createVault`
 
-A missing address or token, a bad path, a missing secret, or a rejected token throws `VaultError`. The token is not included in the error. A `404` reports that the secret was not found. Any other failed status includes the Vault `errors` list when the body has one.
+```ts
+import { createVault } from "@veducio/keja";
 
-Grant JWTs use top-level `grants`, including Vault Transit and a secret loaded from KV. See [Grants](/grants).
+const client = createVault({
+  address: "https://vault.example",
+  token: "s.token",
+  namespace: null,
+  mount: "secret",
+});
+await client.secret("apps/keja");
+```
+
+## Errors
+
+`VaultError` on missing address/token, bad path, missing secret, or rejected token. Token is not included in the error. `404` → secret not found. Other failures may include Vault `errors` from the body.

@@ -1,44 +1,43 @@
 ---
-
 title: Versioning
-description: Version tokens and how Keja chooses a handler.
+description: Version catalog, request tokens, and handler selection.
 ---
 
-Every request names a version in the first path segment, such as `/v1/hello`. Every route is written for one version. Keja runs the newest route for that method and path whose version is not newer than the one the caller asked for. A caller on `v1` keeps the `v1` handler after `v2` exists. A caller on `v2` still reaches a `v1` route when `v2` has no route for that method and path.
+## Catalog
 
-`defineVersions` records each version id and the instant it was released. Ids match `v` plus a whole number: `v0`, `v1`, `v2`, `v10`. `v01` is rejected.
+`defineVersions` in `keja.versioning.ts` (or `versioning` path).
 
-| Field        | Required | Role                                                                 |
-| ------------ | -------- | -------------------------------------------------------------------- |
-| key          | yes      | Version id: `v` plus a whole number                                  |
-| `releasedAt` | yes      | `YYYY-MM-DD`, `DD-MM-YYYY`, unix seconds, or unix milliseconds       |
+| Field        | Required | Description                                                    |
+| ------------ | -------- | -------------------------------------------------------------- |
+| key          | yes      | `v` + whole number (`v0`, `v1`, `v10`; not `v01`)              |
+| `releasedAt` | yes      | `YYYY-MM-DD`, `DD-MM-YYYY`, unix seconds, or unix milliseconds |
 
-```ts
-import { defineVersions } from "@veducio/keja";
+| Error | When |
+| ----- | ---- |
+| `2003` | File missing |
+| `2004` | No catalog export |
+| `2008` | Bad version id |
+| `2009` | Bad release date |
 
-export default defineVersions({
-  v1: { releasedAt: "2020-01-15" },
-  v2: { releasedAt: "2024-06-01" },
-});
-```
+## Request tokens
 
-A missing file is project error `2003`. A file that does not default-export the catalog is project error `2004`. A bad id is `2008`. A bad date is `2009`.
+First path segment:
 
-## Request token
+| Token | Resolves to |
+| ----- | ----------- |
+| `v1` | That catalog version when defined |
+| `2024-06-01` / `01-06-2024` | Newest version released on or before that UTC day |
+| `latest` | Newest version |
+| `current` | Newest version |
 
-The first path segment is the token.
+Newest means later `releasedAt`. Equal release instants: higher version number wins. Unknown token → HTTP `404`, framework `1002`.
 
-| Token                        | Selection                                         |
-| ---------------------------- | ------------------------------------------------- |
-| `v1`                         | That version, when the catalog defines it         |
-| `2024-06-01` or `01-06-2024` | Newest version released on or before that UTC day |
-| `latest`                     | Newest version                                    |
-| `current`                    | Newest version                                    |
+## Handler selection
 
-Newest means the later `releasedAt`. When two versions share a release instant, the higher version number wins. An unknown token returns HTTP `404` and framework error `1002`.
+1. Resolve the token to a catalog version.
+2. Keep routes with the same method and path whose version is not newer than that version.
+3. Run the newest remaining route.
 
-## Handler fallback
+Newer means later release date, or same date and higher version number. Nothing left → HTTP `404`, framework `1001`.
 
-After the token resolves, Keja keeps routes with the same method and path whose version is not newer than the requested version. Newer means a later release date, or the same release date and a higher version number. Among the remaining routes, the newest one runs.
-
-A request for `v2` can run a `v1` handler when `v2` has no route for that method and path. A request for `v1` does not run a `v2` handler. When nothing remains, the response is HTTP `404` and framework error `1001`.
+A `v2` request may run a `v1` handler when `v2` has no override. A `v1` request never runs a `v2` handler.

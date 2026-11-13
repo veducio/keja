@@ -1,10 +1,9 @@
 ---
-
 title: Commands
-description: keja dev, start, migrate, generate, seed, init, and build.
+description: keja CLI commands and behavior.
 ---
 
-Run these commands from a Keja project directory. `dev` and `start` serve the two ports. `migrate`, `generate`, and `seed` are the database commands. `init` creates a project. `build` is reserved. `dev` and `start` load that directory, run the self-test, then listen.
+Run these from a Keja project directory (except `init`, which creates one).
 
 ```shell
 keja dev
@@ -16,34 +15,41 @@ keja init
 keja build
 ```
 
-The self-test checks that the process is Bun and that `HOST`, `HTTP_PORT`, and `HTTP_SERVICE_PORT` are present. A failed self-test exits `1` for both commands.
+`dev` and `start` load the project, run the self-test, then listen. The self-test requires Bun and `HOST`, `HTTP_PORT`, and `HTTP_SERVICE_PORT`. A failed self-test exits `1`.
 
-## dev
+## `keja dev`
 
-`keja dev` is the development server. It watches the project and reloads routes, their local imports, `/_openapi.json`, and `/docs` without closing the sockets. A reload prints `reloading...`. A project with no errors prints `no issues found`. A failed reload prints the red error badge and keeps serving the last good project. The first boot failure prints that badge and `waiting for changes` until a later save succeeds.
+Development server. Watches the project and reloads routes, local imports, `/_openapi.json`, and `/docs` without closing sockets.
 
-The database pool, Vault, and Argus stay as they were at boot. Restart `dev` after changing those settings, `.env`, or Keja itself.
+| Output                 | Meaning                                      |
+| ---------------------- | -------------------------------------------- |
+| `reloading...`         | A watched change is being applied            |
+| `no issues found`      | Project loaded                               |
+| red `ERROR` badge      | Load failed; last good project keeps serving |
+| `waiting for changes`  | First boot failed; waiting for a fix         |
 
-## start
+Database pool, Vault, and Argus stay as they were at boot. Restart after changing those settings, `.env`, or Keja itself.
 
-`keja start` listens once. A project with no errors prints `no issues found`. A project error prints the same badge and the process exits `1`.
+## `keja start`
 
-## migrate
+Listens once. Success prints `no issues found`. A project error prints the badge and exits `1`.
 
-`keja migrate` applies the files in the migrations folder. It prints the folder and the filenames applied by that command, or `up to date`. The database must be enabled. A project error prints the same badge and the process exits `1`.
+## `keja migrate`
 
-## generate
+Applies SQL files in the migrations folder. Requires `db.enabled`. Prints the folder and applied filenames, or `up to date`. Project errors exit `1`.
 
-`keja generate` reads the migration SQL and writes `src/db/repositories.ts`. It does not connect to Postgres and it does not apply migrations. `keja.repositories.ts` turns on `list` and `get` for named tables. A project error prints the same badge and the process exits `1`.
+## `keja generate`
 
-## seed
+Reads migration SQL and writes `src/db/repositories.ts`. Does not connect to Postgres and does not apply migrations. `keja.repositories.ts` selects `list` / `get` flags. Project errors exit `1`.
 
-`keja seed` inserts each `defineSeeder` from the `seed` folder. It does not apply migrations. A row whose `_id` is already stored is left in place. The command prints how many rows each table gained. The database must be enabled. A project error prints the same badge and the process exits `1`.
+## `keja seed`
 
-## init
+Inserts each `defineSeeder` from `seed/`. Does not migrate. Skips rows whose `_id` already exists. Prints rows gained per table. Requires the database. Project errors exit `1`.
 
-`keja init` creates a project. Flags and the generated files are in [Install](/install).
+## `keja init`
 
-## build
+Creates a project. Flags: [Install](/install).
 
-`keja build` prints `build is not implemented` and exits `1`.
+## `keja build`
+
+Prints `build is not implemented` and exits `1`.

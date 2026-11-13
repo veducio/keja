@@ -1,39 +1,31 @@
 ---
-
 title: Keja
-description: A Bun server for Veducio container services.
+description: A Bun server for container microservices.
 ---
 
-Keja was first built as a side project by Plomyk. It later became part of Veducio Labs. Veducio Labs exists to power open source.
+Keja is a Bun HTTP framework for small services that run in containers. You declare versions, routes, and optional Postgres tables. Keja loads the project directory and listens on two ports: one for public callers, one for other services.
 
-Keja is Polish for “quay”, the place where arrivals and departures meet. An API request has somewhere to dock. A response has a way back out.
+Install the package, create a project, and follow the first-service lesson. After that, use a how-to when you have a concrete task, reference when you need exact fields, and explanation when you want the model behind a choice.
 
-Keja is a Bun server. [Hono](https://hono.dev) handles HTTP underneath. The pieces a Veducio service uses are already included: two listeners, versioned routes, batch calls, Postgres rows with one shared shape, and optional Argus, Vault, Grants, and Cloudflare Access.
+## Start here
 
-Use Keja for microservices that run in containers. That is the infrastructure it is built for. A service on a VPS, or a monolith, should use Hono on its own, or NestJS.
+1. [Install](/install) — put Keja on the machine and create a project.
+2. [Build first service](/build-first-service) — serve `GET /v1/hello`, then store one table.
 
-Keja is strict. A route, a version, and a stored row each have to match a small set of shapes. That limit is the goal. This shape runs 90% of the services in the Veducio infrastructure.
+## How documentation is organized
 
-## Where to go
+| Kind | Use it when you want to… |
+| ---- | ------------------------ |
+| [How-to guides](/how-to-add-a-route) | Solve one problem (add a route, turn on Postgres, issue a grant) |
+| [Reference](/project) | Look up config, CLI, APIs, and error codes |
+| [Explanation](/why-keja) | Understand why Keja is shaped the way it is |
 
-[Install](/install) gets the package onto the machine. [Build first service](/build-first-service) serves `GET /v1/hello`, then stores one table.
+## What you get
 
-The concept pages follow the order a service meets them.
+- Two listeners: public methods as declared, service routes as POST only
+- Path-based API versions with fallback to older handlers
+- Optional batch calls on `POST /{version}/batch`
+- Optional Postgres with one shared row shape (OwnedObjects)
+- Optional Argus, Vault, Grants, and Cloudflare Access
 
-| Page                           | What it explains                                   |
-| ------------------------------ | -------------------------------------------------- |
-| [Project](/project)            | Layout, every `defineConfig` field, and env vars   |
-| [Versioning](/versioning)      | Why the first path segment chooses a handler       |
-| [Routes](/routes)              | One `defineRoute`, optional names, and batch       |
-| [Responses](/responses)        | `respond.Name`, the status, and the body schema    |
-| [Middleware](/middleware)      | Code that runs after the route is chosen           |
-| [Servers](/servers)            | The public port, the service port, and Scalar docs |
-| [OwnedObjects](/owned-objects) | The columns every application table has            |
-| [TypeIDs](/type-ids)           | The time-ordered `_id`                             |
-| [Database](/database)          | Migrations, repositories, and seed data            |
-| [Argus](/argus)                | Finding another service and calling it             |
-| [Vault](/vault)                | Reading one KV secret                              |
-| [Grants](/grants)              | Short-lived JWTs signed with Transit or a secret   |
-| [Cloudflare Access](/access)   | Checking the caller’s Access token                 |
-
-[Commands](/commands) and [Errors](/errors) are the lookup pages.
+Keja is a deliberate small surface. If you need a general-purpose web framework for a monolith or a long-lived VPS app, use Hono or NestJS directly. For the idea behind that choice, see [Why Keja](/why-keja).
