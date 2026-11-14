@@ -75,4 +75,37 @@ describe("readTables", () => {
       ]),
     ).toThrow("users.photo has no TypeScript type");
   });
+
+  it("reads create type enums and columns that use them", () => {
+    const tables = readTables([
+      {
+        file: "0001_status.sql",
+        sql: `
+          create type post_status as enum ('draft', 'published');
+          create table posts (${owned}, status post_status not null);
+          alter type post_status add value 'archived';
+          alter table posts add column visibility post_status;
+        `,
+      },
+    ]);
+    expect(tables).toEqual([
+      {
+        name: "posts",
+        columns: [
+          {
+            name: "status",
+            type: "enum",
+            nullable: false,
+            values: ["draft", "published", "archived"],
+          },
+          {
+            name: "visibility",
+            type: "enum",
+            nullable: true,
+            values: ["draft", "published", "archived"],
+          },
+        ],
+      },
+    ]);
+  });
 });

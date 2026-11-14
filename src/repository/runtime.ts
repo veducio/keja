@@ -10,31 +10,42 @@ import {
 } from "./query.ts";
 import type { ColumnType, DomainColumn } from "./sql.ts";
 
-export type ColumnSpec = {
-  readonly type: ColumnType;
-  readonly nullable: boolean;
-};
+export type ColumnSpec =
+  | {
+      readonly type: Exclude<ColumnType, "enum">;
+      readonly nullable: boolean;
+    }
+  | {
+      readonly type: "enum";
+      readonly values: readonly [string, ...string[]];
+      readonly nullable: boolean;
+    };
 
-type TsValue<Type extends ColumnType> = Type extends "text"
-  ? string
-  : Type extends "boolean"
-    ? boolean
-    : Type extends "timestamptz"
-      ? Date
-      : Type extends "integer"
-        ? number
-        : Type extends "bigint"
-          ? string
-          : Type extends "numeric"
+type SpecValue<Spec extends ColumnSpec> = Spec extends {
+  type: "enum";
+  values: readonly (infer Value)[];
+}
+  ? Value
+  : Spec["type"] extends "text"
+    ? string
+    : Spec["type"] extends "boolean"
+      ? boolean
+      : Spec["type"] extends "timestamptz"
+        ? Date
+        : Spec["type"] extends "integer"
+          ? number
+          : Spec["type"] extends "bigint"
             ? string
-            : Type extends "jsonb"
-              ? unknown
-              : never;
+            : Spec["type"] extends "numeric"
+              ? string
+              : Spec["type"] extends "jsonb"
+                ? unknown
+                : never;
 
 export type DomainRow<Columns extends Record<string, ColumnSpec>> = {
   [Key in keyof Columns]: Columns[Key]["nullable"] extends true
-    ? TsValue<Columns[Key]["type"]> | null
-    : TsValue<Columns[Key]["type"]>;
+    ? SpecValue<Columns[Key]> | null
+    : SpecValue<Columns[Key]>;
 };
 
 export type RepositoryRow<Columns extends Record<string, ColumnSpec>> = {
@@ -133,11 +144,21 @@ export function repository<
 }): Repository<Columns> &
   (List extends false ? object : { list: ListProcessor<Columns, List> }) &
   (Get extends true ? { get: GetProcessor<Columns> } : object) {
-  const columns = Object.entries(input.columns).map(([name, column]) => ({
-    name,
-    type: column.type,
-    nullable: column.nullable,
-  }));
+  const columns = Object.entries(input.columns).map(
+    ([name, column]): DomainColumn =>
+      column.type === "enum"
+        ? {
+            name,
+            type: "enum",
+            nullable: column.nullable,
+            values: column.values,
+          }
+        : {
+            name,
+            type: column.type,
+            nullable: column.nullable,
+          },
+  );
   const shape = rowSchemas(columns);
   const base: Repository<Columns> = {
     table: input.table,
@@ -240,7 +261,7 @@ function listFilters(
 function rowSchemas(columns: readonly DomainColumn[]) {
   const domain: Record<string, z.ZodType> = {};
   for (const column of columns) {
-    domain[column.name] = columnSchema(column.type, column.nullable);
+    domain[column.name] = columnSchema(column);
   }
   return {
     schema: z.object(domain),
@@ -256,20 +277,22 @@ function rowSchemas(columns: readonly DomainColumn[]) {
   };
 }
 
-function columnSchema(type: ColumnType, nullable: boolean) {
+function columnSchema(column: DomainColumn) {
   const schema =
-    type === "boolean"
+    column.type === "boolean"
       ? z.boolean()
-      : type === "timestamptz"
+      : column.type === "timestamptz"
         ? z.date()
-        : type === "integer"
+        : column.type === "integer"
           ? z.number().int()
-          : type === "bigint" || type === "numeric"
+          : column.type === "bigint" || column.type === "numeric"
             ? z.string()
-            : type === "jsonb"
+            : column.type === "jsonb"
               ? z.unknown()
-              : z.string();
-  return nullable ? schema.nullable() : schema;
+              : column.type === "enum"
+                ? z.enum(column.values)
+                : z.string();
+  return column.nullable ? schema.nullable() : schema;
 }
 
 function builtQuerySort(sort: string | undefined) {

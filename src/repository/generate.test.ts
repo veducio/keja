@@ -55,4 +55,20 @@ describe("renderRepositories", () => {
     );
     expect(source).toContain('list: { filters: ["name"], limit: 20 },');
   });
+
+  it("writes enum columns with their values", () => {
+    const tables = readTables([
+      {
+        file: "0001_example.sql",
+        sql: `
+          create type post_status as enum ('draft', 'published');
+          create table posts (${owned}, status post_status not null);
+        `,
+      },
+    ]);
+    const source = renderRepositories(tables, new Map());
+    expect(source).toContain(
+      'status: { type: "enum", values: ["draft", "published"], nullable: false },',
+    );
+  });
 });

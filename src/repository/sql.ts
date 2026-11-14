@@ -7,13 +7,21 @@ export type ColumnType =
   | "integer"
   | "bigint"
   | "numeric"
-  | "jsonb";
+  | "jsonb"
+  | "enum";
 
-export type DomainColumn = {
-  name: string;
-  type: ColumnType;
-  nullable: boolean;
-};
+export type DomainColumn =
+  | {
+      name: string;
+      type: Exclude<ColumnType, "enum">;
+      nullable: boolean;
+    }
+  | {
+      name: string;
+      type: "enum";
+      nullable: boolean;
+      values: readonly [string, ...string[]];
+    };
 
 export type TableSchema = {
   name: string;
@@ -29,7 +37,10 @@ const reservedTypes = {
   _updatedAt: "timestamptz",
 } as const;
 
-const typePatterns: readonly { pattern: RegExp; type: ColumnType }[] = [
+const typePatterns: readonly {
+  pattern: RegExp;
+  type: Exclude<ColumnType, "enum">;
+}[] = [
   { pattern: /^timestamptz\b/i, type: "timestamptz" },
   { pattern: /^timestamp\s+with\s+time\s+zone\b/i, type: "timestamptz" },
   { pattern: /^boolean\b/i, type: "boolean" },
@@ -47,48 +58,114 @@ const typePatterns: readonly { pattern: RegExp; type: ColumnType }[] = [
   { pattern: /^character\s+varying\b/i, type: "text" },
 ];
 
-type ParsedColumn = DomainColumn;
+type WorkingColumn =
+  | {
+      name: string;
+      type: Exclude<ColumnType, "enum">;
+      nullable: boolean;
+    }
+  | {
+      name: string;
+      type: "enum";
+      nullable: boolean;
+      enumName: string;
+    };
 
 type WorkingTable = {
   name: string;
-  reserved: Map<string, ParsedColumn>;
-  columns: DomainColumn[];
+  reserved: Map<string, WorkingColumn>;
+  columns: WorkingColumn[];
 };
 
 export function readTables(files: readonly { file: string; sql: string }[]) {
   const tables = new Map<string, WorkingTable>();
+  const enums = new Map<string, [string, ...string[]]>();
   for (const file of files) {
     for (const statement of statements(stripComments(file.sql))) {
-      applyStatement(tables, file.file, statement);
+      applyStatement(tables, enums, file.file, statement);
     }
   }
   return [...tables.values()]
-    .map((table) => finishTable(table))
+    .map((table) => finishTable(table, enums))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function applyStatement(
   tables: Map<string, WorkingTable>,
+  enums: Map<string, [string, ...string[]]>,
   file: string,
   statement: string,
 ) {
+  const createType = statement.match(
+    /^create\s+type\s+(?:if\s+not\s+exists\s+)?(.+?)\s+as\s+enum\s*\(([\s\S]*)\)\s*$/i,
+  );
+  if (createType?.[1] && createType[2] !== undefined) {
+    createEnum(enums, file, createType[1].trim(), createType[2]);
+    return;
+  }
+  const alterType = statement.match(
+    /^alter\s+type\s+(.+?)\s+add\s+value\s+(?:if\s+not\s+exists\s+)?([\s\S]+)$/i,
+  );
+  if (alterType?.[1] && alterType[2]) {
+    addEnumValue(enums, file, alterType[1].trim(), alterType[2].trim());
+    return;
+  }
   const create = statement.match(
     /^create\s+table\s+(?:if\s+not\s+exists\s+)?([\s\S]+)$/i,
   );
   if (create?.[1]) {
-    createTable(tables, file, create[1]);
+    createTable(tables, enums, file, create[1]);
     return;
   }
   const alter = statement.match(
     /^alter\s+table\s+(.+?)\s+add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?([\s\S]+)$/i,
   );
   if (alter?.[1] && alter[2]) {
-    addColumn(tables, file, alter[1].trim(), alter[2].trim());
+    addColumn(tables, enums, file, alter[1].trim(), alter[2].trim());
   }
+}
+
+function createEnum(
+  enums: Map<string, [string, ...string[]]>,
+  file: string,
+  token: string,
+  body: string,
+) {
+  const name = typeName(token, file);
+  if (enums.has(name)) {
+    throw projectError(
+      "invalidRepositorySql",
+      `${file} creates type ${name} more than once`,
+    );
+  }
+  const values = readEnumValues(body, file, name);
+  enums.set(name, values);
+}
+
+function addEnumValue(
+  enums: Map<string, [string, ...string[]]>,
+  file: string,
+  token: string,
+  rest: string,
+) {
+  const name = typeName(token, file);
+  const current = enums.get(name);
+  if (!current) {
+    throw projectError(
+      "invalidRepositorySql",
+      `${file} adds a value to missing type ${name}`,
+    );
+  }
+  const value = readEnumLiteral(rest, file, name);
+  if (current.includes(value)) {
+    return;
+  }
+  enums.set(name, [...current, value]);
 }
 
 function createTable(
   tables: Map<string, WorkingTable>,
+  enums: Map<string, [string, ...string[]]>,
   file: string,
   rest: string,
 ) {
@@ -116,7 +193,7 @@ function createTable(
     if (isConstraint(part)) {
       continue;
     }
-    const column = readColumn(part, file, name);
+    const column = readColumn(part, file, name, enums);
     storeColumn(table, column, file);
   }
   tables.set(name, table);
@@ -124,6 +201,7 @@ function createTable(
 
 function addColumn(
   tables: Map<string, WorkingTable>,
+  enums: Map<string, [string, ...string[]]>,
   file: string,
   tableToken: string,
   definition: string,
@@ -136,11 +214,11 @@ function addColumn(
       `${file} adds a column to missing table ${name}`,
     );
   }
-  const column = readColumn(definition, file, name);
+  const column = readColumn(definition, file, name, enums);
   storeColumn(table, column, file);
 }
 
-function storeColumn(table: WorkingTable, column: ParsedColumn, file: string) {
+function storeColumn(table: WorkingTable, column: WorkingColumn, file: string) {
   if (column.name in reservedTypes) {
     if (table.reserved.has(column.name)) {
       throw projectError(
@@ -166,7 +244,10 @@ function storeColumn(table: WorkingTable, column: ParsedColumn, file: string) {
   table.columns.push(column);
 }
 
-function finishTable(table: WorkingTable): TableSchema {
+function finishTable(
+  table: WorkingTable,
+  enums: Map<string, [string, ...string[]]>,
+): TableSchema {
   for (const [name, type] of Object.entries(reservedTypes)) {
     const column = table.reserved.get(name);
     if (!column || column.nullable || column.type !== type) {
@@ -176,10 +257,40 @@ function finishTable(table: WorkingTable): TableSchema {
       );
     }
   }
-  return { name: table.name, columns: table.columns };
+  return {
+    name: table.name,
+    columns: table.columns.map((column) => finishColumn(column, enums)),
+  };
 }
 
-function readColumn(definition: string, file: string, table: string) {
+function finishColumn(
+  column: WorkingColumn,
+  enums: Map<string, [string, ...string[]]>,
+): DomainColumn {
+  if (column.type !== "enum") {
+    return column;
+  }
+  const values = enums.get(column.enumName);
+  if (!values) {
+    throw projectError(
+      "invalidRepositorySql",
+      `${column.name} references missing type ${column.enumName}`,
+    );
+  }
+  return {
+    name: column.name,
+    type: "enum",
+    nullable: column.nullable,
+    values,
+  };
+}
+
+function readColumn(
+  definition: string,
+  file: string,
+  table: string,
+  enums: Map<string, [string, ...string[]]>,
+): WorkingColumn {
   const ident = readIdent(definition.trim());
   if (!ident) {
     throw projectError(
@@ -188,14 +299,36 @@ function readColumn(definition: string, file: string, table: string) {
     );
   }
   const mapped = typePatterns.find((item) => item.pattern.test(ident.rest));
-  if (!mapped) {
-    throw projectError(
-      "invalidRepositorySql",
-      `${file} column ${table}.${ident.name} has no TypeScript type`,
-    );
-  }
   const nullable = !/\b(?:not\s+null|primary\s+key)\b/i.test(ident.rest);
-  return { name: ident.name, type: mapped.type, nullable };
+  if (mapped) {
+    return { name: ident.name, type: mapped.type, nullable };
+  }
+  const enumName = readTypeReference(ident.rest);
+  if (enumName && enums.has(enumName)) {
+    return { name: ident.name, type: "enum", nullable, enumName };
+  }
+  throw projectError(
+    "invalidRepositorySql",
+    `${file} column ${table}.${ident.name} has no TypeScript type`,
+  );
+}
+
+function readTypeReference(rest: string) {
+  const parts: string[] = [];
+  let remaining = rest.trim();
+  while (remaining !== "") {
+    const ident = readIdent(remaining);
+    if (!ident) {
+      break;
+    }
+    parts.push(ident.name);
+    remaining = ident.rest;
+    if (!remaining.startsWith(".")) {
+      break;
+    }
+    remaining = remaining.slice(1).trim();
+  }
+  return parts.at(-1);
 }
 
 function tableName(token: string, file: string) {
@@ -212,6 +345,45 @@ function tableName(token: string, file: string) {
     );
   }
   return name;
+}
+
+function typeName(token: string, file: string) {
+  const name = readTypeReference(token);
+  if (!name || !/^[a-z_][a-z0-9_]*$/.test(name)) {
+    throw projectError(
+      "invalidRepositorySql",
+      `${file} has a type name Keja cannot read`,
+    );
+  }
+  return name;
+}
+
+function readEnumValues(body: string, file: string, type: string) {
+  const values: string[] = [];
+  for (const part of splitTopLevel(body)) {
+    if (part.trim() === "") {
+      continue;
+    }
+    values.push(readEnumLiteral(part.trim(), file, type));
+  }
+  if (values.length === 0) {
+    throw projectError(
+      "invalidRepositorySql",
+      `${file} type ${type} has no enum values`,
+    );
+  }
+  return values as [string, ...string[]];
+}
+
+function readEnumLiteral(value: string, file: string, type: string) {
+  const match = value.match(/^'((?:[^']|'')*)'(?:\s+.*)?$/s);
+  if (!match?.[1]) {
+    throw projectError(
+      "invalidRepositorySql",
+      `${file} type ${type} has an enum value Keja cannot read`,
+    );
+  }
+  return match[1].replaceAll("''", "'");
 }
 
 function isConstraint(part: string) {

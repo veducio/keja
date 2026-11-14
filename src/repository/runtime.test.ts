@@ -29,6 +29,23 @@ describe("repository", () => {
     }
   });
 
+  it("validates enum columns against declared values", () => {
+    const posts = repository({
+      table: "posts",
+      columns: {
+        status: {
+          type: "enum",
+          values: ["draft", "published"],
+          nullable: false,
+        },
+      },
+    });
+    expect(posts.schema.parse({ status: "draft" })).toEqual({
+      status: "draft",
+    });
+    expect(() => posts.schema.parse({ status: "archived" })).toThrow();
+  });
+
   it("exposes a row schema with and without meta", () => {
     const users = repository({ table: "users", columns });
     const at = new Date("2026-01-15T00:00:00.000Z");
@@ -38,6 +55,7 @@ describe("repository", () => {
       name: "Ada",
       email: "ada@example.com",
     });
+
     expect(
       users.meta.parse({
         ...row("users_a", "Ada"),

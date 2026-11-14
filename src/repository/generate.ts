@@ -82,10 +82,7 @@ function renderRepository(
   flags: { list: ResolvedList; get: boolean } | undefined,
 ) {
   const columns = table.columns
-    .map(
-      (column) =>
-        `    ${column.name}: { type: "${column.type}", nullable: ${column.nullable} },`,
-    )
+    .map((column) => renderColumn(column))
     .join("\n");
   const options = [
     renderList(flags?.list),
@@ -114,4 +111,14 @@ function renderList(list: ResolvedList | undefined) {
     list.limit !== undefined ? `limit: ${list.limit}` : "",
   ].filter((part) => part !== "");
   return `  list: { ${parts.join(", ")} },`;
+}
+
+function renderColumn(column: TableSchema["columns"][number]) {
+  if (column.type === "enum") {
+    const values = column.values
+      .map((value) => JSON.stringify(value))
+      .join(", ");
+    return `    ${column.name}: { type: "enum", values: [${values}], nullable: ${column.nullable} },`;
+  }
+  return `    ${column.name}: { type: "${column.type}", nullable: ${column.nullable} },`;
 }

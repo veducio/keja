@@ -245,6 +245,11 @@ function parseValue(column: DomainColumn, value: string) {
     }
     return value;
   }
+  if (column.type === "enum" && !column.values.includes(value)) {
+    throw new Error(
+      `${column.name} filter must be ${column.values.join(", ")}`,
+    );
+  }
   return value;
 }
 

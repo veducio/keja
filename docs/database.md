@@ -38,7 +38,7 @@ Modules in `seed/`. Path order. `defineSeeder({ table, objects })`. Objects must
 
 ## Repositories
 
-`keja generate` reads `CREATE TABLE` / `ALTER TABLE ... ADD COLUMN` and writes `src/db/repositories.ts` (no DB connection). Unreadable SQL → `2028`.
+`keja generate` reads `CREATE TABLE`, `ALTER TABLE ... ADD COLUMN`, `CREATE TYPE ... AS ENUM`, and `ALTER TYPE ... ADD VALUE`, then writes `src/db/repositories.ts` (no DB connection). Enum columns become `{ type: "enum", values: [...] }`. Unreadable SQL → `2028`.
 
 `keja.repositories.ts`:
 
