@@ -22,7 +22,7 @@ Service routes must use `method: "post"`.
 
 ### 2. Create a route file
 
-Create `src/public/items.ts` (name is yours):
+With `keja dev` already running, create an empty `src/public/items.ts`. On the next reload Keja fills it with a basic `GET /items` stub. Edit that stub, or replace it with your own route:
 
 ```ts
 import { defineRoute, response } from "@veducio/keja";
@@ -43,7 +43,7 @@ export default defineRoute({
 });
 ```
 
-`path` is the URL after the version segment. `name` is optional; Scalar uses it as the operation summary.
+`path` is the URL after the version segment. `name` is optional; Scalar uses it as the operation summary. Service files get a `post` stub instead.
 
 ### 3. Confirm reload and response
 

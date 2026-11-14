@@ -10,6 +10,7 @@ import {
   printServers,
   readProjectFailure,
 } from "./run-project.ts";
+import { scaffoldEmptyRoutes } from "./scaffold-empty-route.ts";
 
 export const reloadDebounceMs = 50;
 
@@ -111,6 +112,7 @@ export async function runDev(root = process.cwd()) {
       const token = String(generation);
       if (running) {
         printReloading();
+        await scaffoldEmptyRoutes(running.paths.public, running.paths.service);
       }
       const result = await refreshDevProject({
         running: running !== null,

@@ -20,7 +20,7 @@ keja build
 
 ## `keja dev`
 
-Development server. Watches the project and reloads routes, local imports, `/_openapi.json`, and `/docs` without closing sockets.
+Development server. Watches the project and reloads routes, local imports, `/_openapi.json`, and `/docs` without closing sockets. When a reload runs, an empty `.ts` file under the public or service folder is filled with a basic `defineRoute` stub (`get` on public, `post` on service; path from the file name; version `v1`).
 
 | Output                | Meaning                                      |
 | --------------------- | -------------------------------------------- |
