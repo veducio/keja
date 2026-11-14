@@ -1,3 +1,5 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { freshImportUrl, resolveProjectImport } from "./reload-graph.ts";
@@ -24,6 +26,32 @@ describe("project reload imports", () => {
       file,
       outside: false,
     });
+  });
+
+  it("adds a TypeScript extension to an extensionless relative import", () => {
+    const project = mkdtempSync(path.join(tmpdir(), "keja-reload-"));
+    const repositories = path.join(project, "src", "db", "repositories.ts");
+    const importer = path.join(
+      project,
+      "src",
+      "public",
+      "config",
+      "tenants.ts",
+    );
+    mkdirSync(path.dirname(repositories), { recursive: true });
+    mkdirSync(path.dirname(importer), { recursive: true });
+    writeFileSync(repositories, "export {}\n");
+    try {
+      const resolved = resolveProjectImport({
+        importer: `keja:${importer}`,
+        specifier: "../../db/repositories",
+        projectRoot: project,
+        generation: "4",
+      });
+      expect(resolved?.file).toBe(repositories);
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
   });
 
   it("follows the next file imported by that dependency", () => {

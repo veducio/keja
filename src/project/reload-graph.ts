@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,7 +35,9 @@ export function resolveProjectImport(input: {
   if (!inProject && !inGraph) {
     return null;
   }
-  const resolved = path.resolve(path.dirname(importerFile), specifier);
+  const resolved = resolveRelativeFile(
+    path.resolve(path.dirname(importerFile), specifier),
+  );
   if (isNodeModules(resolved)) {
     return null;
   }
@@ -146,6 +148,46 @@ function loaderFor(file: string) {
 
 function isRelativeSpecifier(specifier: string) {
   return specifier.startsWith("./") || specifier.startsWith("../");
+}
+
+const sourceExtensions = [
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".json",
+] as const;
+
+function resolveRelativeFile(resolved: string) {
+  if (fileExists(resolved)) {
+    return resolved;
+  }
+  if (path.extname(resolved) !== "") {
+    return resolved;
+  }
+  for (const extension of sourceExtensions) {
+    const candidate = `${resolved}${extension}`;
+    if (fileExists(candidate)) {
+      return candidate;
+    }
+  }
+  for (const extension of sourceExtensions) {
+    const candidate = path.join(resolved, `index${extension}`);
+    if (fileExists(candidate)) {
+      return candidate;
+    }
+  }
+  return resolved;
+}
+
+function fileExists(file: string) {
+  try {
+    return existsSync(file) && statSync(file).isFile();
+  } catch {
+    return false;
+  }
 }
 
 function filePath(importer: string) {
