@@ -60,4 +60,18 @@ describe("runMiddleware", () => {
       ).rejects.toThrow(`Middleware cannot pass reserved field ${key}`);
     }
   });
+
+  it("rejects next() when the rest of the chain does not return a Response", async () => {
+    const step = defineMiddleware(async ({ next }) => {
+      const response = await next();
+      return response;
+    });
+    await expect(
+      runMiddleware(
+        [{ definition: step, allowFields: true }],
+        context,
+        () => undefined as never,
+      ),
+    ).rejects.toThrow("next() must resolve to a Response");
+  });
 });

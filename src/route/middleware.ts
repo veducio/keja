@@ -128,7 +128,11 @@ export async function runMiddleware(
           }
           Object.assign(fields, passed);
         }
-        return dispatch();
+        const nextResponse = await dispatch();
+        if (!(nextResponse instanceof Response)) {
+          throw new Error("next() must resolve to a Response");
+        }
+        return nextResponse;
       },
     });
     if (!(response instanceof Response)) {
