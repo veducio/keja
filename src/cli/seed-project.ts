@@ -4,7 +4,7 @@ import { DBCall, setDatabase } from "../db/client.ts";
 import { connectDatabase } from "../db/postgres.ts";
 import { DependencyNotMet } from "../errors/framework-errors.ts";
 import { loadConfig } from "../project/config.ts";
-import { applySeeder, truncateSeedTables } from "../seed/apply.ts";
+import { applySeeders } from "../seed/apply.ts";
 import { confirmSeed } from "../seed/confirm.ts";
 import { loadSeeders } from "../seed/load.ts";
 import { formatSeed } from "../seed/report.ts";
@@ -40,14 +40,7 @@ export async function runSeed(
       console.log("  Seed cancelled.");
       return;
     }
-    await truncateSeedTables(tables);
-    const results = [];
-    for (const seeder of seeders) {
-      results.push({
-        table: seeder.table,
-        inserted: await applySeeder(seeder),
-      });
-    }
+    const results = await applySeeders(seeders);
     console.log(formatSeed(results, process.stdout.isTTY === true));
   } catch (error) {
     console.error(

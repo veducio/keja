@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { setDatabase } from "../db/client.ts";
 import { createTypeId } from "../typeid/id.ts";
-import { applySeeder, truncateSeedTables } from "./apply.ts";
+import { applySeeder, applySeeders, truncateSeedTables } from "./apply.ts";
 import { defineSeeder } from "./define.ts";
 
 describe("applySeeder", () => {
@@ -64,6 +64,156 @@ describe("truncateSeedTables", () => {
       ]);
       await truncateSeedTables([]);
       expect(statements).toHaveLength(1);
+    } finally {
+      setDatabase(null);
+    }
+  });
+});
+
+describe("applySeeders", () => {
+  it("runs truncate and inserts inside one transaction", async () => {
+    const statements: string[] = [];
+    const inserts: string[] = [];
+    let began = false;
+    const tx = Object.assign(
+      (...args: unknown[]) => {
+        const first = args[0];
+        if (typeof first === "string") {
+          return new Identifier(first);
+        }
+        if (isTemplate(first)) {
+          inserts.push(Array.from(first as ArrayLike<string>).join(" "));
+          return [{ _id: "row" }];
+        }
+        return new InsertHelper(Array.isArray(first) ? first : [first]);
+      },
+      {
+        unsafe(statement: string) {
+          statements.push(statement);
+        },
+      },
+    );
+    setDatabase({
+      begin: async (fn: (sql: unknown) => Promise<unknown>) => {
+        began = true;
+        return fn(tx);
+      },
+    } as never);
+    try {
+      const at = new Date("2026-01-15T00:00:00.000Z");
+      const results = await applySeeders([
+        defineSeeder({
+          table: "users",
+          objects: [
+            {
+              _id: createTypeId("users"),
+              _object: "v1.users",
+              _tenant: "tenant_1",
+              _archived: false,
+              _createdAt: at,
+              _updatedAt: at,
+              name: "Ada",
+            },
+          ],
+        }),
+        defineSeeder({
+          table: "notes",
+          objects: [
+            {
+              _id: createTypeId("notes"),
+              _object: "v1.notes",
+              _tenant: "tenant_1",
+              _archived: false,
+              _createdAt: at,
+              _updatedAt: at,
+              message: "hi",
+            },
+          ],
+        }),
+      ]);
+      expect(began).toBe(true);
+      expect(statements).toEqual([
+        'truncate "users", "notes" restart identity cascade',
+      ]);
+      expect(inserts).toHaveLength(2);
+      expect(results).toEqual([
+        { table: "users", inserted: 1 },
+        { table: "notes", inserted: 1 },
+      ]);
+    } finally {
+      setDatabase(null);
+    }
+  });
+
+  it("rolls back when a later seeder fails", async () => {
+    let committed = false;
+    let inserts = 0;
+    const tx = Object.assign(
+      (...args: unknown[]) => {
+        const first = args[0];
+        if (typeof first === "string") {
+          return new Identifier(first);
+        }
+        if (isTemplate(first)) {
+          inserts += 1;
+          if (inserts > 1) {
+            throw new Error("second seeder failed");
+          }
+          return [{ _id: "row" }];
+        }
+        return new InsertHelper(Array.isArray(first) ? first : [first]);
+      },
+      {
+        unsafe() {},
+      },
+    );
+    setDatabase({
+      begin: async (fn: (sql: unknown) => Promise<unknown>) => {
+        try {
+          const result = await fn(tx);
+          committed = true;
+          return result;
+        } catch (error) {
+          committed = false;
+          throw error;
+        }
+      },
+    } as never);
+    try {
+      const at = new Date("2026-01-15T00:00:00.000Z");
+      await expect(
+        applySeeders([
+          defineSeeder({
+            table: "users",
+            objects: [
+              {
+                _id: createTypeId("users"),
+                _object: "v1.users",
+                _tenant: "tenant_1",
+                _archived: false,
+                _createdAt: at,
+                _updatedAt: at,
+                name: "Ada",
+              },
+            ],
+          }),
+          defineSeeder({
+            table: "notes",
+            objects: [
+              {
+                _id: createTypeId("notes"),
+                _object: "v1.notes",
+                _tenant: "tenant_1",
+                _archived: false,
+                _createdAt: at,
+                _updatedAt: at,
+                message: "hi",
+              },
+            ],
+          }),
+        ]),
+      ).rejects.toThrow("second seeder failed");
+      expect(committed).toBe(false);
     } finally {
       setDatabase(null);
     }

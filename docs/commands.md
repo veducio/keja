@@ -45,7 +45,7 @@ Reads migration SQL and writes `src/db/repositories.ts`. Does not connect to Pos
 
 ## `keja seed`
 
-Clears every table named by the seeders (`truncate ... cascade`), then inserts each `defineSeeder` from `seed/`. Does not migrate. Asks for confirmation first. Pass `--yes` / `-y` to skip the prompt (required when there is no terminal). Prints rows inserted per table. Requires the database. Project errors exit `1`.
+Clears every table named by the seeders (`truncate ... cascade`), then inserts each `defineSeeder` from `seed/`, all in one transaction. A failed seeder rolls back the truncate and any earlier inserts. Does not migrate. Asks for confirmation first. Pass `--yes` / `-y` to skip the prompt (required when there is no terminal). Prints rows inserted per table. Requires the database. Project errors exit `1`.
 
 ## `keja init`
 
