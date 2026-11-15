@@ -133,7 +133,7 @@ export default defineSeeder({
 keja seed
 ```
 
-Existing `_id` values are skipped on re-run.
+Confirm the prompt, or pass `--yes` to clear the seeded tables and insert without asking.
 
 ## Done
 

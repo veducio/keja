@@ -34,7 +34,7 @@ Gaps in numbers are allowed. Empty folder creates `keja_migrations` and reports 
 
 ## Seeders
 
-Modules in `seed/`. Path order. `defineSeeder({ table, objects })`. Objects must be OwnedObjects-shaped and share columns within one seeder. Existing `_id` skipped. No seeder export → `2027`. Bad table/row → `2026`. Database disabled → `DependencyNotMet`: `seed requires db`.
+Modules in `seed/`. Path order. `defineSeeder({ table, objects })`. Objects must be OwnedObjects-shaped and share columns within one seeder. `keja seed` truncates those tables (`restart identity cascade`) after confirmation, then inserts. Pass `--yes` to skip the prompt. No seeder export → `2027`. Bad table/row → `2026`. Database disabled → `DependencyNotMet`: `seed requires db`.
 
 ## Repositories
 

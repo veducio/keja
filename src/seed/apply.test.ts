@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { setDatabase } from "../db/client.ts";
 import { createTypeId } from "../typeid/id.ts";
-import { applySeeder } from "./apply.ts";
+import { applySeeder, truncateSeedTables } from "./apply.ts";
 import { defineSeeder } from "./define.ts";
 
 describe("applySeeder", () => {
-  it("inserts owned rows and skips an existing _id", async () => {
+  it("inserts owned rows after a clear", async () => {
     const calls: unknown[][] = [];
     setDatabase(((...args: unknown[]) => {
       calls.push(args);
@@ -41,8 +41,29 @@ describe("applySeeder", () => {
       const statement = Array.from(template?.[0] as ArrayLike<string>).join(
         " ",
       );
-      expect(statement).toContain("on conflict (_id) do nothing");
       expect(statement).toContain("returning _id");
+      expect(statement).not.toContain("on conflict");
+    } finally {
+      setDatabase(null);
+    }
+  });
+});
+
+describe("truncateSeedTables", () => {
+  it("truncates each seeded table once", async () => {
+    const statements: string[] = [];
+    setDatabase({
+      unsafe(statement: string) {
+        statements.push(statement);
+      },
+    } as never);
+    try {
+      await truncateSeedTables(["users", "notes", "users"]);
+      expect(statements).toEqual([
+        'truncate "users", "notes" restart identity cascade',
+      ]);
+      await truncateSeedTables([]);
+      expect(statements).toHaveLength(1);
     } finally {
       setDatabase(null);
     }
