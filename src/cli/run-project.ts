@@ -66,8 +66,71 @@ export function readProjectFailure(error: unknown): ProjectFailure {
   }
   return {
     scope: "Project",
-    detail: error instanceof Error ? error.message : "Failed to start",
+    detail: formatUnknownFailure(error),
   };
+}
+
+export function formatUnknownFailure(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "Failed to start";
+  }
+  const nested = nestedFailures(error);
+  if (nested.length === 0) {
+    return error.message;
+  }
+  return [
+    error.message,
+    ...nested.map((item) => formatNestedFailure(item)),
+  ].join("\n");
+}
+
+function nestedFailures(error: Error) {
+  const errors = (error as { errors?: unknown }).errors;
+  if (Array.isArray(errors) && errors.length > 0) {
+    return errors;
+  }
+  if (error.cause !== undefined) {
+    return [error.cause];
+  }
+  return [];
+}
+
+function formatNestedFailure(error: unknown) {
+  if (
+    !(error instanceof Error) &&
+    (typeof error !== "object" || error === null)
+  ) {
+    return String(error);
+  }
+  const item = error as {
+    message?: string;
+    position?: {
+      file?: string;
+      line?: number;
+      column?: number;
+      lineText?: string;
+    };
+  };
+  const message =
+    typeof item.message === "string" && item.message !== ""
+      ? item.message
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  const position = item.position;
+  if (!position?.file) {
+    return message;
+  }
+  const line = position.line ?? 0;
+  const column = position.column ?? 0;
+  const lines = [message, `at ${position.file}:${line}:${column}`];
+  if (typeof position.lineText === "string" && position.lineText !== "") {
+    lines.push(position.lineText);
+    if (column > 0) {
+      lines.push(`${" ".repeat(Math.max(0, column - 1))}^`);
+    }
+  }
+  return lines.join("\n");
 }
 
 export function formatProjectFailure(

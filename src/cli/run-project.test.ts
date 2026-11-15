@@ -1,11 +1,58 @@
 import { Chalk } from "chalk";
 import { describe, expect, it } from "vitest";
 import { projectError } from "../errors/framework-errors.ts";
-import { formatProjectFailure, readProjectFailure } from "./run-project.ts";
+import {
+  formatProjectFailure,
+  formatUnknownFailure,
+  readProjectFailure,
+} from "./run-project.ts";
 
 const unknownVersion = readProjectFailure(
   projectError("unknownRouteVersion", "GET /posts uses unknown version v12"),
 );
+
+describe("formatUnknownFailure", () => {
+  it("prints nested build messages with file location and source", () => {
+    const failure = Object.assign(
+      new AggregateError(
+        [
+          Object.assign(new Error('Expected identifier but found ")"'), {
+            position: {
+              file: "C:\\app\\src\\public\\PassLogin.ts",
+              line: 40,
+              column: 54,
+              lineText:
+                "          type: z.enum(user_restrictions.schema.type.),",
+            },
+          }),
+        ],
+        '6 errors building "PassLogin.ts"',
+      ),
+      {
+        errors: [
+          Object.assign(new Error('Expected identifier but found ")"'), {
+            position: {
+              file: "C:\\app\\src\\public\\PassLogin.ts",
+              line: 40,
+              column: 54,
+              lineText:
+                "          type: z.enum(user_restrictions.schema.type.),",
+            },
+          }),
+        ],
+      },
+    );
+    expect(formatUnknownFailure(failure)).toBe(
+      [
+        '6 errors building "PassLogin.ts"',
+        'Expected identifier but found ")"',
+        "at C:\\app\\src\\public\\PassLogin.ts:40:54",
+        "          type: z.enum(user_restrictions.schema.type.),",
+        `${" ".repeat(53)}^`,
+      ].join("\n"),
+    );
+  });
+});
 
 describe("formatProjectFailure", () => {
   it("prints the scope, code, and name, then waits in dev", () => {
